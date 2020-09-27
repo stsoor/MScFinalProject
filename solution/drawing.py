@@ -38,19 +38,19 @@ class HypergraphDrawer:
             pts = np.vstack([c1, c2, c3, c4]).astype(np.float32)
 
             #cv2.polylines(img, [pts], True, cv_color, cv2.FILLED)
-            cv2.fillPoly(edge_img, [pts], color)
+            cv2.fillPoly(edge_img, [pts.astype(np.int32)], color)
 
         color = tuple(map(int, color))
         assert(len(segment_hull) > 0)
         if len(segment_hull) == 1:
             point = segment_hull[0]
             r = self._get_radius()
-            cv2.circle(edge_img, tuple(point), r, color, cv2.FILLED)
+            cv2.circle(edge_img, tuple(point), int(r), color, cv2.FILLED)
         elif len(segment_hull) == 2:
             start, end = segment_hull
             r = self._get_radius()
-            cv2.circle(edge_img, tuple(start), r, color, cv2.FILLED)
-            cv2.circle(edge_img, tuple(end), r, color, cv2.FILLED)
+            cv2.circle(edge_img, tuple(start), int(r), color, cv2.FILLED)
+            cv2.circle(edge_img, tuple(end), int(r), color, cv2.FILLED)
 
             draw_two_point_rectangle(edge_img, start, end, r, color)
         else:
