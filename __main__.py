@@ -15,7 +15,7 @@ h7 = Hypergraph(8, 2)
 h8 = Hypergraph(8, 2)
 h1[:4,0] = True
 h1[4:,1] = True
-# h1[:,0] = True
+h1[:,0] = True
 h2[:4,0] = True
 h2[4:,1] = True
 h3[:3,0] = True
@@ -58,7 +58,8 @@ x[13] = 150
 
 components = solution_model.get_edge_components()
 evaluator = DistanceModelEvaluator(*[1.0]*8)
-evaluator.get_score(solution_model)
+score = evaluator.get_score(solution_model)
+print(score)
 drawer = HypergraphDrawer(solution_model, components)
 img = drawer()
 #img = drawer([[0,255,0],[255,0,0]])

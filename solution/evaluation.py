@@ -142,7 +142,7 @@ class DistanceModelEvaluator(Evaluator):
 
     # best [0,1] worst
     def _calculate_min_node_distance_to_target_ratio(self, solution, min_distance_realisation): # O(n^2), this measure is global
-        return 1.0 - max(1.0, min_distance_realisation) / solution.get_problem().min_node_distance
+        return 1.0 - min(min_distance_realisation / solution.get_problem().min_node_distance, 1.0)
 
     def _get_r(self, solution):
         r = solution.get_problem().min_node_distance / 2.0
