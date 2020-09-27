@@ -35,9 +35,10 @@ class HypergraphDrawer:
             c2 = (start - r*n)
             c3 = (end - r*n)
             c4 = (end + r*n)
-            rpts = np.vstack([c1, c2, c3, c4]).astype(np.float32)
+            pts = np.vstack([c1, c2, c3, c4]).astype(np.float32)
 
-            cv2.polylines(img, [pts], True, color, cv2.FILLED)
+            #cv2.polylines(img, [pts], True, cv_color, cv2.FILLED)
+            cv2.fillPoly(img, [pts], tuple(map(int, color)))
 
         assert(len(segment_hull) > 0)
         if len(segment_hull) == 1:
@@ -52,7 +53,9 @@ class HypergraphDrawer:
 
             draw_two_point_rectangle(img, start, end, r, color)
         else:
-            cv2.polylines(img, [segment_hull], True, color, cv2.FILLED)
+            #cv2.polylines(img, [cv_segment_hull], True, cv_color, 1)
+            #cv2.fillPoly(img, [cv_segment_hull], cv_color)
+            cv2.fillPoly(img, [segment_hull.astype(np.int32)], tuple(map(int, color)))
 
     def _draw_points(self, img, all_positions, color=(0,0,0), r=3):
         for point in all_positions:
@@ -69,9 +72,9 @@ class HypergraphDrawer:
         edge_components = self._solution.get_edge_components()
 
         for edge_id in range(len(self._edge_components)):
+            color = colors[edge_id]
             for segment in edge_components[edge_id]:
                 hull = self._get_convex_hull(segment, all_positions)
-                color = colors[edge_id]
                 self._draw_segment(img, hull, color)
 
         self._draw_points(img, all_positions)
