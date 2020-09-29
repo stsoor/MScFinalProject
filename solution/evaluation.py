@@ -16,15 +16,15 @@ class Evaluator:
 
 class DistanceModelEvaluator(Evaluator):
     def __init__(self,
-                 edge_count_weight,
-                 circularity_weight,
-                 not_missing_containment_weight,
-                 not_miscontained_weight,
-                 no_single_separation_weight,
+                 edge_count_weight = 1.0,
+                 circularity_weight = 1.0,
+                 not_missing_containment_weight = 1.0,
+                 not_miscontained_weight = 1.0,
+                 no_single_separation_weight = 1.0,
                 #  spatial_dispersion_weight,
-                 min_distance_weight,
-                 nodes_at_min_distance_weight,
-                 area_proportionality_weight):
+                 min_distance_weight = 1.0,
+                 nodes_at_min_distance_weight = 1.0,
+                 area_proportionality_weight = 1.0):
         self.edge_count_weight              = edge_count_weight
         self.circularity_weight             = circularity_weight
         self.not_missing_containment_weight = not_missing_containment_weight
@@ -165,14 +165,22 @@ class DistanceModelEvaluator(Evaluator):
             miscounted_nodes_measure = sum([self._calculate_miscontained_nodes_ratio(segment_vertex_ids, segment_hull, all_positions, r) / len(segment_hulls) for segment_hull in segment_hulls])
             edge_segment_num_measure = self._calculate_edge_segments_num_ratio(all_edge_components[edge_id])
             area_proportionality_measure = self._calculate_area_proportionality(edge_id, segment_hulls, solution, r)
+            single_node_separation_ratio = self._calculate_single_node_separations_ratio(all_edge_components[edge_id])
 
-            a = 4 # TODO delete
-            # TODO edgewise_scores = 
+            edge_score  = self.edge_count_weight  * edge_segment_num_measure
+            edge_score += self.circularity_weight * circularity_measure
+            edge_score += self.not_miscontained_weight * miscounted_nodes_measure
+            edge_score += self.not_missing_containment_weight * nodes_not_missing_measure
+            edge_score += self.no_single_separation_weight * single_node_separation_ratio
+            edge_score += self.area_proportionality_weight * area_proportionality_measure
 
-        min_node_distance, min_distance_occurence_measure = self._calculate_min_node_distance_and_occurences(solution, all_positions)
+            edgewise_scores[edge_id] = edge_score
+
+
+        min_node_distance, min_distance_occurence_num = self._calculate_min_node_distance_and_occurences(solution, all_positions)
         min_distance_measure = self._calculate_min_node_distance_to_target_ratio(solution, min_node_distance)
 
-        a = 4 # TODO delete
-        #TODO return
+        global_score = edgewise_scores.mean()
+        global_score += self.min_distance_weight * min_distance_measure * min_distance_occurence_num
 
-        #return self.Score(edgewise_scores, ???)
+        return self.Score(edgewise_scores, global_score)
