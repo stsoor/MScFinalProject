@@ -73,3 +73,13 @@ class NodewiseDistanceSolutionModel(SolutionModel):
     def get_problem(self):
         return self._problem_model
 
+    def get_vector_lower_bounds(self):
+        return np.full(self._x.size, 0.0, dtype=np.float32)
+
+    def get_vector_upper_bounds(self):
+        upper_bounds = np.empty(self._x.size, dtype=np.float32)
+        canvas_width, canvas_height = self._problem_model.size
+        upper_bounds[:self._node_num] = canvas_width
+        upper_bounds[self._node_num:2*self._node_num] = canvas_height
+        upper_bounds[2*self._node_num:] = canvas_width * canvas_height # sqrt(x^2+y^2) <= x*y
+        return upper_bounds
