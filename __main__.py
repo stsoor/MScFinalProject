@@ -1,9 +1,10 @@
-from problem.model import ProblemModel, Hypergraph
+from problem.model import Hypergraph, NodewiseDistanceModel
 from utilities.random import RandomGenerator
-from solution.model import NodewiseDistanceSolutionModel
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
+from optimization.algorithms import PSO
 import cv2
+import numpy as np
 
 h1 = Hypergraph(7, 2)
 h2 = Hypergraph(7, 2)
@@ -35,81 +36,26 @@ h8[4:,1] = True
 
 h = h1
 
-problem = ProblemModel(h, 10, 1080, 720)
-solution_model = NodewiseDistanceSolutionModel(problem)
-x = solution_model.get_vector_view()
+x = np.array([100,100,200,200,120,150,180,100,200,200,100,120,150,120] + [50] * 7, dtype=np.float32)
 
-#h1
-x[14:] = 50
-x[16] = 100
-x[17] = 100
-x[0] = 100
-x[1] = 200
-x[2] = 100
-x[3] = 200
-x[4] = 120
-x[5] = 180
-x[6] = 150
-x[7] = 100
-x[8] = 100
-x[9] = 200
-x[10] = 200
-x[11] = 120
-x[12] = 120
-x[13] = 150
+problem = NodewiseDistanceModel(h, 10, 1080, 720)
+components = problem.get_edge_components(x)
 
-# h6
-# x[6:] = 500
-# x[0] = 500
-# x[1] = 550
-# x[2] = 700
-# x[3] = 500
-# x[4] = 500
-# x[5] = 700
+print(components)
 
-
-components = solution_model.get_edge_components()
-evaluator = DistanceModelEvaluator(*[1.0]*8)
-score = evaluator.get_score(solution_model)
-print(score)
-drawer = HypergraphDrawer(solution_model, components)
-img = drawer()
-#img = drawer([[0,255,0],[255,0,0]])
+drawer = HypergraphDrawer(problem, x)
+img = drawer([[0,255,0],[255,0,0]])
 cv2.imshow('Window', img)
 cv2.waitKey(0)
 
+# evaluator = DistanceModelEvaluator()
+# initializer = DistanceModelInitializer
 
-# h = Hypergraph(8, 2)
-# h[[0,3,4],0] = True
-# h[[1,2,3,4,5,6],1] = True
-# problem = ProblemModel(h, 10, 1080, 720)
-# solution_model = NodewiseDistanceSolutionModel(problem)
-# x = solution_model.get_vector_view()
-# #x[16:] = 1.0
-# x[0] = -5
-# x[1] = -4
-# x[2] = -3
-# x[3] = -5
-# x[4] = -4
-# x[5] = -3
-# x[6] = -5
-# x[7] = 1
-# x[8] = 6.5
-# x[9] = 6.2
-# x[10] = 7
-# x[11] = 6
-# x[12] = 6
-# x[13] = 6
-# x[14] = 5.8
-# x[15] = 1
-# x[16] = 1.25
-# x[17] = 0.3
-# x[18] = 1.1
-# x[19] = 0.5
-# x[20] = 1.25
-# x[21] = 1
-# x[22] = 0.5
-# x[23] = 200
-# components = solution_model.get_edge_components()
+# pso = PSO(evaluator, initializer, 5, 0.5, 0.5, 0.5, 100)
+# best_global_value, best_global_position, iteration = pso.run()
 
-print(8)
+# drawer = HypergraphDrawer(problem, components)
+# img = drawer()
+#img = drawer([[0,255,0],[255,0,0]])
+# cv2.imshow('Window', img)
+# cv2.waitKey(0)
