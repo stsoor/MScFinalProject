@@ -66,7 +66,7 @@ class HypergraphDrawer:
             colors = self._generate_colors(len(self._edge_components))
         img = self._generate_empty_image(self._problem.size)
 
-        all_positions = self._problem.extract_positions2D(self._solution)
+        all_positions = np.round(self._problem.extract_positions2D(self._solution)).astype(np.int32)
         edge_components = self._problem.get_edge_components(self._solution)
 
         for edge_id in range(edge_num):

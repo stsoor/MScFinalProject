@@ -131,7 +131,8 @@ class DistanceModelEvaluator(Evaluator):
     def _calculate_min_node_distance_and_occurences(self, positions): # O(n^2), this measure is global
         distances = pdist(positions)
         min_distance = distances.min()
-        num_mins = (distances == min_distance).sum()
+        epsilon = 1e-8
+        num_mins = (distances <= min_distance + epsilon).sum()
         return min_distance, num_mins
 
     # best [0,1] worst
@@ -142,9 +143,9 @@ class DistanceModelEvaluator(Evaluator):
         r = self.problem.min_node_distance / 2.0
         return r
 
-    def __call__(self, x):
+    def get_edgewise_and_global_scores(self, x):
         all_edge_components = self.problem.get_edge_components(x)
-        edgewise_scores = np.full((1,len(all_edge_components)), 1.0)
+        edgewise_scores = np.full(len(all_edge_components), 1.0)
         all_positions = self.problem.extract_positions2D(x)
 
         r = self._get_r()
@@ -178,3 +179,7 @@ class DistanceModelEvaluator(Evaluator):
         global_score += self.min_distance_weight * min_distance_measure * min_distance_occurence_num
 
         return edgewise_scores, global_score
+
+    def __call__(self, x):
+        _edgewise_scores, global_score = self.get_edgewise_and_global_scores(x)
+        return global_score
