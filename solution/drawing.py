@@ -58,7 +58,7 @@ class HypergraphDrawer:
         for point in all_positions:
             cv2.circle(img, tuple(point), r, color, cv2.FILLED)
 
-    def __call__(self, colors=None):
+    def build_image(self, colors=None):
         edge_num = len(self._edge_components)
         assert(colors is None or len(colors) == edge_num)
 
@@ -82,3 +82,9 @@ class HypergraphDrawer:
         self._draw_points(img, all_positions)
 
         return img
+
+    def show(self, img=None, colors=None, wait_key=0, window_title='Window'):
+        if img is None:
+            img = self.build_image(colors)
+        cv2.imshow(window_title, img)
+        cv2.waitKey(wait_key)
