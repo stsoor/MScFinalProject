@@ -1,7 +1,9 @@
 import numpy as np
 
+from solution.drawing import HypergraphDrawer
+
 class PSO:
-    def __init__(self, problem, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, min_value_change=1e-8):
+    def __init__(self, problem, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, min_value_change=1e-8, debug_wait_key=None):
         # velocity_(T+1) = w*velocity_(T) + c_1*random_1*(best_particle_pos-current_pos) + c_2*random_2*(best_global_pos-current_pos)
         self.evaluator = evaluator
         self.problem = problem
@@ -12,6 +14,8 @@ class PSO:
         self.c_2 = np.float32(c_2)
         self.max_iteration_num = max_iteration_num
         self.min_value_change = min_value_change
+
+        self.debug_wait_key = debug_wait_key
         
         self.particle_num = particle_num
         self.dimensions = len(self.lower_bounds)
@@ -44,6 +48,11 @@ class PSO:
         if self.best_particle_values[argmin] < self.best_global_value:
             self.best_global_value = self.best_particle_values[argmin]
             self.best_global_position = self.best_particle_positions[argmin, :].copy()
+
+            if self.debug_wait_key is not None:
+                drawer = HypergraphDrawer(self.problem, self.best_global_position)
+                drawer.show(wait_key=self.debug_wait_key)
+                print(self.best_global_value)
     
     def _update_velocities(self, w, c_1, c_2):
         r_1 = np.random.uniform(0, 1, size=(self.particle_num, self.dimensions))

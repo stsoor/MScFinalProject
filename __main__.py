@@ -44,17 +44,15 @@ components = problem.get_edge_components(x)
 
 #print(components)
 
-evaluator = DistanceModelEvaluator(problem)
+evaluator = DistanceModelEvaluator(problem, intersection_measure_weight = 1.0, debug_wait_key=None)
 #print(evaluator(x))
 initializer = DistanceSolutionInitializer
-pso = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100)
+pso = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
 best_global_value, best_global_position, iteration = pso.run()
 print(best_global_value, iteration)
 
 drawer = HypergraphDrawer(problem, best_global_position)
-img = drawer([[0,255,0],[255,0,0]])
-cv2.imshow('Window', img)
-cv2.waitKey(0)
+drawer.show(colors=[[0,255,0],[255,0,0]])
 
 # initializer = DistanceModelInitializer
 
