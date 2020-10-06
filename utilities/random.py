@@ -10,7 +10,7 @@ class RandomGenerator:
         self.param_2 = param_2
         if mode == 'uniform':
             self.generator =  np.random.uniform
-        if mode == 'normal':
+        elif mode == 'normal':
             self.generator = np.random.normal
         else:
             raise ValueError('mode has to be "uniform" or "normal"')
