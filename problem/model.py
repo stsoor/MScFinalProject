@@ -62,7 +62,8 @@ class NodewiseDistanceModel(ProblemModel):
             edge_pd_adjacency = pd.DataFrame(edge_adjacency, index=labels, columns=labels)
             edge_graph = nx.from_pandas_adjacency(edge_pd_adjacency)
             edge_components = list(nx.connected_components(edge_graph))
-            all_components.append(edge_components)
+            if len(edge_components) > 0:
+                all_components.append(edge_components)
         
         return all_components
 
