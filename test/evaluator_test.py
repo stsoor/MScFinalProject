@@ -39,7 +39,7 @@ class DistanceModelEvaluatorTest(unittest.TestCase):
     def test_edge_count(self):
         evaluator = self._build_edge_count_only_evaluator(self.problem_1)
         x = np.array([100,100,200,200,120,150,180] + [100,200,200,100,120,150,120] + [50] * 7, dtype=np.float32)
-        value = evaluator(x)
+        value = evaluator(x, self.problem_1)
         self.assertAlmostEqual(value, 0.375)
 
 

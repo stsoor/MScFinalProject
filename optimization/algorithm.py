@@ -36,7 +36,7 @@ class PSO:
         self._update_global_bests()
     
     def _update_current_objective_values(self):
-        self.current_particle_values = np.apply_along_axis(self.evaluator, 1, self.x).astype(np.float32)
+        self.current_particle_values = np.apply_along_axis(self.evaluator, 1, self.x, self.problem).astype(np.float32)
         
     def _update_particle_bests(self):
         improvement_mask = (self.current_particle_values < self.best_particle_values)

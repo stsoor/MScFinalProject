@@ -32,7 +32,6 @@ class DistanceModelEvaluator(Evaluator):
         self.nodes_at_min_distance_weight   = nodes_at_min_distance_weight
         self.area_proportionality_weight    = area_proportionality_weight
         self.intersection_measure_weight    = intersection_measure_weight
-        self.problem = problem_model
         self.debug_wait_key = debug_wait_key
 
     # best [0,1] worst
@@ -74,10 +73,10 @@ class DistanceModelEvaluator(Evaluator):
             return 1.0 - (4 * np.pi * area) / (2.0 * r * np.pi  + 2.0 * rectangle_length)**2
     
     # best [0, 1) worst
-    def _calculate_miscontained_nodes_measure(self, segment_vertex_ids, convex_hull, all_positions, r): # O(S*((n-d)*d + d*log(d))) <= O(n^3)    
+    def _calculate_miscontained_nodes_measure(self, problem, segment_vertex_ids, convex_hull, all_positions, r): # O(S*((n-d)*d + d*log(d))) <= O(n^3)    
         miscontained_vertex_num = 0
         #segment_vertex_num = 0
-        max_possible_distance_to_polygon = np.linalg.norm(np.array(self.problem.size) / 2.0) # TODO
+        max_possible_distance_to_polygon = np.linalg.norm(np.array(problem.size) / 2.0) # TODO
         for vertex_id in range(all_positions.shape[0]):
             if vertex_id in segment_vertex_ids:
                 #segment_vertex_num += 1
@@ -146,11 +145,11 @@ class DistanceModelEvaluator(Evaluator):
     #     # check if the sum of x & y differences to the center are 0
 
     # best [0,1] worst
-    def _calculate_area_proportionality(self, edge_id, edge_hulls, r): # O(S) <= O(n)
+    def _calculate_area_proportionality(self, problem, edge_id, edge_hulls, r): # O(S) <= O(n)
         edge_area = sum([self._get_area(convex_hull, r) for convex_hull in edge_hulls])
-        canvas_size = self.problem.size[0] * self.problem.size[1]
-        all_vertex_num = self.problem.hypergraph.shape[0]
-        edge_vertex_num = self.problem.hypergraph[:, edge_id].sum()
+        canvas_size = problem.size[0] * problem.size[1]
+        all_vertex_num = problem.hypergraph.shape[0]
+        edge_vertex_num = problem.hypergraph[:, edge_id].sum()
         return abs(edge_area / canvas_size - edge_vertex_num / all_vertex_num) # abs([0,1] - [0,1])
 
     # [0,sqrt(width^2+height^2)], [0, n]
@@ -162,12 +161,16 @@ class DistanceModelEvaluator(Evaluator):
         return min_distance, num_mins
 
     # best [0,1] worst
-    def _calculate_min_node_distance_to_target_ratio(self, min_distance_realisation): # O(n^2), this measure is global
-        return 1.0 - min(min_distance_realisation / self.problem.min_node_distance, 1.0)
+    def _calculate_min_node_distance_to_target_ratio(self, problem, min_distance_realisation): # O(n^2), this measure is global
+        return 1.0 - min(min_distance_realisation / problem.min_node_distance, 1.0)
 
     # https://stackoverflow.com/questions/27161533/find-the-shortest-distance-between-a-point-and-line-segments-not-line
     def _get_line_segment_point_distance(self, start, end, point):
-            # TODO start = end?
+            epsilon = 1e-8
+            if np.abs(start - end) < epsilon:
+                start_diff = np.linalg.norm(start - point)
+                end_diff = np.linalg.norm(start - point)
+                return (start_diff, start) if start_diff < end_diff else (end_diff, end)
             line = start - end
             point_vector = (start - point)
             line_len = np.linalg.norm(line)
@@ -215,12 +218,12 @@ class DistanceModelEvaluator(Evaluator):
     #     non_intersecting = np.vstack((non_intersecting[0][symmetricity_mask], non_intersecting[1][symmetricity_mask]))
     #     return non_intersecting
 
-    def _get_edge_intersection_table(self):
-        h = self.problem.hypergraph
+    def _get_edge_intersection_table(self, problem):
+        h = problem.hypergraph
         intersection_table = h.transpose() @ h
         return intersection_table
     
-    def _do_edge_components_intersect(self, all_positions, segment_1, segment_2):
+    def _do_edge_components_intersect(self, problem, all_positions, segment_1, segment_2):
         def do_1_1_len_intersect(all_positions, segment_1_list, segment_2_list, r):
             point_1 = all_positions[segment_1_list[0]]
             point_2 = all_positions[segment_2_list[0]]
@@ -303,7 +306,7 @@ class DistanceModelEvaluator(Evaluator):
                         return True
             return False
 
-        r = self._get_r()
+        r = self._get_r(problem)
         segment_1_list = list(segment_1)
         segment_2_list = list(segment_2)
         if len(segment_1) == 1:
@@ -328,8 +331,8 @@ class DistanceModelEvaluator(Evaluator):
             else:
                 return do_3_3_len_intersect(all_positions, segment_1_list, segment_2_list)
 
-    def _calculate_intersection_measure(self, all_positions, edge_components):
-        edge_intersections = self._get_edge_intersection_table()
+    def _calculate_intersection_measure(self, problem, all_positions, edge_components):
+        edge_intersections = self._get_edge_intersection_table(problem)
         all_segment_num = sum(map(len, edge_components))
         all_possible_intersections = all_segment_num * (all_segment_num - 1) / 2.0
         measure = 0.0
@@ -340,31 +343,31 @@ class DistanceModelEvaluator(Evaluator):
                     continue                                 # TODO should it stay that way?
                 for segment_1 in edge_components[edge_1_id]:
                     for segment_2 in edge_components[edge_2_id]:
-                        is_intersecting = self._do_edge_components_intersect(all_positions, segment_1, segment_2)
+                        is_intersecting = self._do_edge_components_intersect(problem, all_positions, segment_1, segment_2)
                         if is_intersecting:
                             measure += 1.0 / all_possible_intersections
         return measure
 
-    def _get_r(self):
-        r = self.problem.min_node_distance / 2.0
+    def _get_r(self, problem):
+        r = problem.min_node_distance / 2.0
         return r
 
-    def get_edgewise_and_global_scores(self, x):
-        all_edge_components = self.problem.get_edge_components(x)
+    def get_edgewise_and_global_scores(self, problem, x):
+        all_edge_components = problem.get_edge_components(x)
         edgewise_scores = np.full(len(all_edge_components), 1.0)
-        all_positions = self.problem.extract_positions2D(x)
+        all_positions = problem.extract_positions2D(x)
 
-        r = self._get_r()
+        r = self._get_r(problem)
         for edge_id in range(len(all_edge_components)):
             segment_hulls = [self._get_convex_hull(segment, all_positions) for segment in all_edge_components[edge_id]]
-            edge = self.problem.hypergraph[:, edge_id]
+            edge = problem.hypergraph[:, edge_id]
             segment_vertex_ids = np.where(edge)[0]
 
             nodes_not_missing_measure = self._calculate_nodes_not_missing_ratio()
             circularity_measure = sum([self._calculate_circularity_measure(segment_hull, r) / len(segment_hulls) for segment_hull in segment_hulls])
-            miscounted_nodes_measure = sum([self._calculate_miscontained_nodes_measure(segment_vertex_ids, segment_hull, all_positions, r) / len(segment_hulls) for segment_hull in segment_hulls])
+            miscounted_nodes_measure = sum([self._calculate_miscontained_nodes_measure(problem, segment_vertex_ids, segment_hull, all_positions, r) / len(segment_hulls) for segment_hull in segment_hulls])
             edge_segment_num_measure = self._calculate_edge_segments_num_ratio(all_edge_components[edge_id])
-            area_proportionality_measure = self._calculate_area_proportionality(edge_id, segment_hulls, r)
+            area_proportionality_measure = self._calculate_area_proportionality(problem, edge_id, segment_hulls, r)
             single_node_separation_ratio = self._calculate_single_node_separations_ratio(all_edge_components[edge_id])
 
             edge_score  = self.edge_count_weight  * edge_segment_num_measure
@@ -378,9 +381,9 @@ class DistanceModelEvaluator(Evaluator):
 
 
         min_node_distance, min_distance_occurence_num = self._calculate_min_node_distance_and_occurences(all_positions)
-        min_distance_measure = self._calculate_min_node_distance_to_target_ratio(min_node_distance)
+        min_distance_measure = self._calculate_min_node_distance_to_target_ratio(problem, min_node_distance)
         if self.intersection_measure_weight is not None:
-            intersection_measure = self._calculate_intersection_measure(all_positions, all_edge_components)
+            intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
         else:
             intersection_measure = 0.0
 
@@ -391,12 +394,12 @@ class DistanceModelEvaluator(Evaluator):
 
         return edgewise_scores, global_score
 
-    def __call__(self, x):
+    def __call__(self, x, problem): # order is needed for apply_along_axis
         if self.debug_wait_key is not None:
-            drawer = HypergraphDrawer(self.problem, x)
+            drawer = HypergraphDrawer(problem, x)
             drawer.show(wait_key=self.debug_wait_key)
 
-        _edgewise_scores, global_score = self.get_edgewise_and_global_scores(x)
+        _edgewise_scores, global_score = self.get_edgewise_and_global_scores(problem, x)
 
         if self.debug_wait_key is not None:
             print(global_score)
