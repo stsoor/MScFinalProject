@@ -1,4 +1,4 @@
-from problem.model import Hypergraph, NodewiseDistanceModel
+from problem.model import Hypergraph, RandomHypergraph, NodewiseDistanceModel
 from utilities.random import RandomGenerator
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
@@ -34,17 +34,31 @@ h7[:4,0] = True
 h7[4:,1] = True
 h8[:4,0] = True
 h8[4:,1] = True
+np.random.seed = 101
+h9 = RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.1)
 
-h = h1
+h = h9
 
-x = np.array([100,100,200,200,120,150,180,100,200,200,100,120,150,120] + [50] * 7, dtype=np.float32)
+#x = np.array([100,100,200,200,120,150,180,100,200,200,100,120,150,120] + [50] * 7, dtype=np.float32)
 
 problem = NodewiseDistanceModel(h, 10, 1080, 720)
-components = problem.get_edge_components(x)
+#components = problem.get_edge_components(x)
 
 #print(components)
 
 evaluator = DistanceModelEvaluator(problem, intersection_measure_weight = 1.0, debug_wait_key=None)
+evaluator = DistanceModelEvaluator(
+                 problem,
+                 edge_count_weight = 1000.0,
+                 circularity_weight = 10.0,
+                 not_missing_containment_weight = 1000.0,
+                 not_miscontained_weight = 1000.0,
+                 no_single_separation_weight = 1000.0,
+                 min_distance_weight = 100.0,
+                 nodes_at_min_distance_weight = 10.0,
+                 area_proportionality_weight = 10.0,
+                 intersection_measure_weight = 1000.0,
+                 debug_wait_key=None)
 #print(evaluator(x))
 initializer = DistanceSolutionInitializer
 pso = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
@@ -52,7 +66,8 @@ best_global_value, best_global_position, iteration = pso.run()
 print(best_global_value, iteration)
 
 drawer = HypergraphDrawer(problem, best_global_position)
-drawer.show(colors=[[0,255,0],[255,0,0]])
+#drawer.show(colors=[[0,255,0],[255,0,0]])
+drawer.show()
 
 # initializer = DistanceModelInitializer
 

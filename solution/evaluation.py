@@ -116,7 +116,7 @@ class DistanceModelEvaluator(Evaluator):
         line_dist_1, _nearest_1 = self._get_line_segment_point_distance(start_1, end_1, point)
         line_dist_2, _nearest_2 = self._get_line_segment_point_distance(start_2, end_2, point)
         if line_dist_1 <= r and line_dist_2 <= r:
-            return np.min(line_dist_1, line_dist_2)
+            return min(line_dist_1, line_dist_2)
         start_distance = np.linalg.norm(start - point)
         if start_distance <= r:
             return start_distance
@@ -167,6 +167,7 @@ class DistanceModelEvaluator(Evaluator):
 
     # https://stackoverflow.com/questions/27161533/find-the-shortest-distance-between-a-point-and-line-segments-not-line
     def _get_line_segment_point_distance(self, start, end, point):
+            # TODO start = end?
             line = start - end
             point_vector = (start - point)
             line_len = np.linalg.norm(line)
@@ -354,7 +355,6 @@ class DistanceModelEvaluator(Evaluator):
         all_positions = self.problem.extract_positions2D(x)
 
         r = self._get_r()
-
         for edge_id in range(len(all_edge_components)):
             segment_hulls = [self._get_convex_hull(segment, all_positions) for segment in all_edge_components[edge_id]]
             edge = self.problem.hypergraph[:, edge_id]
