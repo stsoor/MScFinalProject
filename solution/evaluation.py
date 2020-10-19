@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import pdist
+from scipy.spatial import distance_matrix
 import cv2
 
 from solution.drawing import HypergraphDrawer
@@ -167,7 +168,7 @@ class DistanceModelEvaluator(Evaluator):
     # https://stackoverflow.com/questions/27161533/find-the-shortest-distance-between-a-point-and-line-segments-not-line
     def _get_line_segment_point_distance(self, start, end, point):
             epsilon = 1e-8
-            if np.abs(start - end) < epsilon:
+            if np.linalg.norm(start - end) < epsilon:
                 start_diff = np.linalg.norm(start - point)
                 end_diff = np.linalg.norm(start - point)
                 return (start_diff, start) if start_diff < end_diff else (end_diff, end)
@@ -217,6 +218,24 @@ class DistanceModelEvaluator(Evaluator):
     #     symmetricity_mask = non_intersecting[0] <= non_intersecting[1]
     #     non_intersecting = np.vstack((non_intersecting[0][symmetricity_mask], non_intersecting[1][symmetricity_mask]))
     #     return non_intersecting
+
+    # best (yes) [0, 1] worst (no)
+    # if the given node has no neighbours at all then any neighbour is accepted with the best (0) value
+    def _is_closest_neighbour_edge_neighbour(self, problem, all_positions): # alternative heuristics to edge intersections
+        distances = distance_matrix(all_positions, all_positions, threshold=10**8)
+        closest_neighbour_node_id = np.apply_along_axis(np.argmin, 1, distances)
+        closest_neighbour_node_id_pairs = np.stack((np.arange(closest_neighbour_node_id.size), closest_neighbour_node_id), axis=1)
+
+        intersections = self._get_node_intersection_table(problem)
+        is_node_without_neighbour = (intersections.sum(axis=1) <= 1) # if it has at least one intersection then one of those is with itself (could also be that it isn't in any edges)
+
+        is_edge_neighbour = lambda node_id_pair, intersections, has_neighbour : intersections[node_id_pair[0], node_id_pair[1]] or not has_neighbour[node_id_pair[0]]
+        return np.apply_along_axis(is_edge_neighbour, 1, closest_neighbour_node_id_pairs, intersections, is_node_without_neighbour).astype(np.float32)
+
+    def _get_node_intersection_table(self, problem):
+        h = problem.hypergraph
+        intersection_table = h @ h.transpose()
+        return intersection_table
 
     def _get_edge_intersection_table(self, problem):
         h = problem.hypergraph
@@ -383,7 +402,8 @@ class DistanceModelEvaluator(Evaluator):
         min_node_distance, min_distance_occurence_num = self._calculate_min_node_distance_and_occurences(all_positions)
         min_distance_measure = self._calculate_min_node_distance_to_target_ratio(problem, min_node_distance)
         if self.intersection_measure_weight is not None:
-            intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
+            #intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
+            intersection_measure = self._is_closest_neighbour_edge_neighbour(problem, all_positions)
         else:
             intersection_measure = 0.0
 
