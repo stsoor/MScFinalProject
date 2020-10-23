@@ -79,5 +79,8 @@ class PSO:
             
             if prev_best_global_value != self.best_global_value and np.abs(prev_best_global_value - self.best_global_value) <= self.min_value_change:
                 return self.best_global_value, self.best_global_position, iteration
+                
+            if self.debug_wait_key is not None:
+                print(iteration)
 
         return self.best_global_value, self.best_global_position, iteration

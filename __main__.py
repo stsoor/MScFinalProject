@@ -46,9 +46,8 @@ problem = NodewiseDistanceModel(h, 10, 1080, 720)
 
 #print(components)
 
-evaluator = DistanceModelEvaluator(problem, intersection_measure_weight = 1.0, debug_wait_key=None)
+evaluator = DistanceModelEvaluator(intersection_measure_weight = 1.0, debug_wait_key=None)
 evaluator = DistanceModelEvaluator(
-                 problem,
                  edge_count_weight = 1000.0,
                  circularity_weight = 10.0,
                  not_missing_containment_weight = 1000.0,

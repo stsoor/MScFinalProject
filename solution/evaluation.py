@@ -11,7 +11,6 @@ class Evaluator:
 
 class DistanceModelEvaluator(Evaluator):
     def __init__(self,
-                 problem_model,
                  edge_count_weight = 1.0,
                  circularity_weight = 1.0,
                  not_missing_containment_weight = 1.0,
@@ -219,10 +218,13 @@ class DistanceModelEvaluator(Evaluator):
     #     non_intersecting = np.vstack((non_intersecting[0][symmetricity_mask], non_intersecting[1][symmetricity_mask]))
     #     return non_intersecting
 
-    # best (yes) [0, 1] worst (no)
+
+
+    # best (yes) [0, 1] worst (no) (by nodes)
     # if the given node has no neighbours at all then any neighbour is accepted with the best (0) value
-    def _is_closest_neighbour_edge_neighbour(self, problem, all_positions): # alternative heuristics to edge intersections
+    def _is_closest_neighbour_edge_neighbour(self, problem, all_positions): # O(n^3)
         distances = distance_matrix(all_positions, all_positions, threshold=10**8)
+        np.fill_diagonal(distances, np.inf)
         closest_neighbour_node_id = np.apply_along_axis(np.argmin, 1, distances)
         closest_neighbour_node_id_pairs = np.stack((np.arange(closest_neighbour_node_id.size), closest_neighbour_node_id), axis=1)
 
@@ -230,7 +232,24 @@ class DistanceModelEvaluator(Evaluator):
         is_node_without_neighbour = (intersections.sum(axis=1) <= 1) # if it has at least one intersection then one of those is with itself (could also be that it isn't in any edges)
 
         is_edge_neighbour = lambda node_id_pair, intersections, has_neighbour : intersections[node_id_pair[0], node_id_pair[1]] or not has_neighbour[node_id_pair[0]]
-        return np.apply_along_axis(is_edge_neighbour, 1, closest_neighbour_node_id_pairs, intersections, is_node_without_neighbour).astype(np.float32)
+        is_neighbour_point_vertex_neighbour = np.apply_along_axis(is_edge_neighbour, 1, closest_neighbour_node_id_pairs, intersections, ~is_node_without_neighbour).astype(np.float32)
+        return is_neighbour_point_vertex_neighbour
+
+    # best [0, 1] worst
+    def _is_closest_neighbour_edge_neighbour_edge_measure(self, problem, edge_id, all_positions, is_closest_from_common_edge): # alternative heuristics to edge intersections O(m*n) + O(n^3)
+        #is_closest_from_common_edge = self._is_closest_neighbour_edge_neighbour(problem, all_positions)
+        edge = problem.hypergraph[:, edge_id]
+        if edge.sum() == 0:
+            return 0.0
+        edge_vertex_ids = np.where(edge)[0]
+
+        return 1.0 - is_closest_from_common_edge[edge_vertex_ids].sum() / edge_vertex_ids.size
+    
+    #? def _is_closest_neighbour_edge_neighbour(self, problem, edge_id, edge_hulls, all_positions):
+    #?     for segment in edge_hulls:
+    #?         segment_node_positions = all_positions[segment]
+    #?         distances = distance_matrix(segment_node_positions, segment_node_positions, threshold=10**8)
+    
 
     def _get_node_intersection_table(self, problem):
         h = problem.hypergraph
@@ -375,6 +394,7 @@ class DistanceModelEvaluator(Evaluator):
         all_edge_components = problem.get_edge_components(x)
         edgewise_scores = np.full(len(all_edge_components), 1.0)
         all_positions = problem.extract_positions2D(x)
+        is_closest_from_common_edge = self._is_closest_neighbour_edge_neighbour(problem, all_positions)
 
         r = self._get_r(problem)
         for edge_id in range(len(all_edge_components)):
@@ -388,6 +408,7 @@ class DistanceModelEvaluator(Evaluator):
             edge_segment_num_measure = self._calculate_edge_segments_num_ratio(all_edge_components[edge_id])
             area_proportionality_measure = self._calculate_area_proportionality(problem, edge_id, segment_hulls, r)
             single_node_separation_ratio = self._calculate_single_node_separations_ratio(all_edge_components[edge_id])
+            closest_neighbour_measure = self._is_closest_neighbour_edge_neighbour_edge_measure(problem, edge_id, all_positions, is_closest_from_common_edge)
 
             edge_score  = self.edge_count_weight  * edge_segment_num_measure
             edge_score += self.circularity_weight * circularity_measure
@@ -395,22 +416,22 @@ class DistanceModelEvaluator(Evaluator):
             edge_score += self.not_missing_containment_weight * nodes_not_missing_measure
             edge_score += self.no_single_separation_weight * single_node_separation_ratio
             edge_score += self.area_proportionality_weight * area_proportionality_measure
+            edge_score += self.intersection_measure_weight * closest_neighbour_measure
 
             edgewise_scores[edge_id] = edge_score
 
 
         min_node_distance, min_distance_occurence_num = self._calculate_min_node_distance_and_occurences(all_positions)
         min_distance_measure = self._calculate_min_node_distance_to_target_ratio(problem, min_node_distance)
-        if self.intersection_measure_weight is not None:
-            #intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
-            intersection_measure = self._is_closest_neighbour_edge_neighbour(problem, all_positions)
-        else:
-            intersection_measure = 0.0
+        # if self.intersection_measure_weight is not None:
+        #     intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
+        # else:
+        #     intersection_measure = 0.0
 
         intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
         global_score = edgewise_scores.mean()
         global_score += self.min_distance_weight * min_distance_measure * min_distance_occurence_num
-        global_score += intersection_measure_weight * intersection_measure
+        #global_score += intersection_measure_weight * intersection_measure
 
         return edgewise_scores, global_score
 
