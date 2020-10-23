@@ -210,16 +210,6 @@ class DistanceModelEvaluator(Evaluator):
         else:
             return False
 
-    # def _get_non_intersecting_edge_pairs(self):
-    #     h = self.problem.hypergraph
-    #     intersection_table = h.transpose() @ h
-    #     non_intersecting = np.where(~intersection_table)
-    #     symmetricity_mask = non_intersecting[0] <= non_intersecting[1]
-    #     non_intersecting = np.vstack((non_intersecting[0][symmetricity_mask], non_intersecting[1][symmetricity_mask]))
-    #     return non_intersecting
-
-
-
     # best (yes) [0, 1] worst (no) (by nodes)
     # if the given node has no neighbours at all then any neighbour is accepted with the best (0) value
     def _is_closest_neighbour_edge_neighbour(self, problem, all_positions): # O(n^3)
@@ -229,10 +219,10 @@ class DistanceModelEvaluator(Evaluator):
         closest_neighbour_node_id_pairs = np.stack((np.arange(closest_neighbour_node_id.size), closest_neighbour_node_id), axis=1)
 
         intersections = self._get_node_intersection_table(problem)
-        is_node_without_neighbour = (intersections.sum(axis=1) <= 1) # if it has at least one intersection then one of those is with itself (could also be that it isn't in any edges)
+        has_neighbour = (intersections.sum(axis=1) > 1) # if it has at least one intersection then one of those is with itself (could also be that it isn't in any edges)
 
         is_edge_neighbour = lambda node_id_pair, intersections, has_neighbour : intersections[node_id_pair[0], node_id_pair[1]] or not has_neighbour[node_id_pair[0]]
-        is_neighbour_point_vertex_neighbour = np.apply_along_axis(is_edge_neighbour, 1, closest_neighbour_node_id_pairs, intersections, ~is_node_without_neighbour).astype(np.float32)
+        is_neighbour_point_vertex_neighbour = np.apply_along_axis(is_edge_neighbour, 1, closest_neighbour_node_id_pairs, intersections, has_neighbour).astype(np.float32)
         return is_neighbour_point_vertex_neighbour
 
     # best [0, 1] worst
@@ -245,12 +235,6 @@ class DistanceModelEvaluator(Evaluator):
 
         return 1.0 - is_closest_from_common_edge[edge_vertex_ids].sum() / edge_vertex_ids.size
     
-    #? def _is_closest_neighbour_edge_neighbour(self, problem, edge_id, edge_hulls, all_positions):
-    #?     for segment in edge_hulls:
-    #?         segment_node_positions = all_positions[segment]
-    #?         distances = distance_matrix(segment_node_positions, segment_node_positions, threshold=10**8)
-    
-
     def _get_node_intersection_table(self, problem):
         h = problem.hypergraph
         intersection_table = h @ h.transpose()
@@ -428,7 +412,7 @@ class DistanceModelEvaluator(Evaluator):
         # else:
         #     intersection_measure = 0.0
 
-        intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
+        #intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
         global_score = edgewise_scores.mean()
         global_score += self.min_distance_weight * min_distance_measure * min_distance_occurence_num
         #global_score += intersection_measure_weight * intersection_measure
