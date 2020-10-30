@@ -3,7 +3,7 @@ from utilities.random import RandomGenerator
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
 from solution.initializer import DistanceSolutionInitializer
-from optimization.algorithm import PSO
+from optimization.algorithm import PSO, NaiveGA
 import cv2
 import numpy as np
 
@@ -60,8 +60,11 @@ evaluator = DistanceModelEvaluator(
                  debug_wait_key=None)
 #print(evaluator(x))
 initializer = DistanceSolutionInitializer
-pso = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
-best_global_value, best_global_position, iteration = pso.run()
+#pso = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
+#best_global_value, best_global_position, iteration = pso()
+#print(best_global_value, iteration)
+ga = NaiveGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
+best_global_value, best_global_position, iteration = ga()
 print(best_global_value, iteration)
 
 drawer = HypergraphDrawer(problem, best_global_position)
@@ -71,7 +74,7 @@ drawer.show()
 # initializer = DistanceModelInitializer
 
 # pso = PSO(evaluator, initializer, 5, 0.5, 0.5, 0.5, 100)
-# best_global_value, best_global_position, iteration = pso.run()
+# best_global_value, best_global_position, iteration = pso()
 
 # drawer = HypergraphDrawer(problem, components)
 # img = drawer()
