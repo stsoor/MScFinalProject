@@ -419,7 +419,7 @@ class DistanceModelEvaluator(Evaluator):
 
         return edgewise_scores, global_score
 
-    def __call__(self, x, problem): # order is needed for apply_along_axis
+    def __call__(self, x, problem, return_edgwise_scores=False): # order is needed for apply_along_axis
         if self.debug_wait_key is not None:
             drawer = HypergraphDrawer(problem, x)
             drawer.show(wait_key=self.debug_wait_key)
@@ -429,4 +429,7 @@ class DistanceModelEvaluator(Evaluator):
         if self.debug_wait_key is not None:
             print(global_score)
 
-        return global_score
+        if return_edgwise_scores:
+            return np.append(global_score, _edgewise_scores)
+        else:
+            return global_score

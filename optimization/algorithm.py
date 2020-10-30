@@ -132,6 +132,8 @@ class NaiveGA(GA):
     def _setup_optimization(self):
         self.x = self.initializer(self.problem, self.population_size) # current particle positions
         self.fitness_values = np.zeros(self.population_size, dtype=np.float32)
+        edge_num = self.problem.hypergraph.shape[1]
+        self.edgewise_fitness_values = np.zeros((self.population_size, edge_num), dtype=np.float32)
         self.best_position = np.array([], dtype=self.x.dtype)
         self.best_value = np.inf
 
@@ -142,34 +144,35 @@ class NaiveGA(GA):
         selected_indices = self.fitness_values.argsort()[:num_selected]
         return selected_indices
 
-    def _crossover(self, selected_indices):
-        def select_parent_ids(children_num):
-            parent_1s = np.random.randint(0, self.population_size, size=(children_num//2,1)) # assertion is in place so children is always even
-            parent_2s = np.random.randint(0, self.population_size - 1, size=(children_num//2,1))
-            parent_2s[np.where(parent_1s <= parent_2s)] += 1
-            parents = np.hstack((parent_1s, parent_2s))
-            return parents
-        
-        def permute_node_ids(children_num):
-            node_num = self.problem.hypergraph.shape[0]
-            id_grid = np.tile(np.arange(node_num),(children_num//2, 1)) # assertion is in place so children is always even
-            np.apply_along_axis(np.random.shuffle, 1, id_grid) # does it in place, so the columns of id_grid are shuffled now (row by row)
-            return id_grid
+    def _select_parent_ids(self, parent_num):
+        parent_1s = np.random.randint(0, self.population_size, size=(parent_num,1)) # assertion is in place so children is always even
+        parent_2s = np.random.randint(0, self.population_size - 1, size=(parent_num,1))
+        parent_2s[np.where(parent_1s <= parent_2s)] += 1
+        parents = np.hstack((parent_1s, parent_2s))
+        return parents
+    
+    def _permute_node_ids(self, parent_num, parent_ids):
+        node_num = self.problem.hypergraph.shape[0]
+        id_grid = np.tile(np.arange(node_num),(parent_num, 1)) # assertion is in place so children is always even
+        np.apply_along_axis(np.random.shuffle, 1, id_grid) # does it in place, so the columns of id_grid are shuffled now (row by row)
+        return id_grid
 
-        def combine_parents(parent_1_id, parent_2_id, node_id_permutation):
-            node_num = len(node_id_permutation)
-            parent_2_node_ids = node_id_permutation[-node_num//2:]
-            parent_2_row_ids = np.hstack((parent_2_node_ids, parent_2_node_ids+node_num, parent_2_node_ids+node_num*2))
-            new_row = self.x[parent_1_id, :].copy()
-            new_row[parent_2_row_ids] = self.x[parent_2_id, parent_2_row_ids]
-            return new_row
-        
-        first_children_wrapper = lambda combination_table_row : combine_parents(combination_table_row[0], combination_table_row[1], combination_table_row[2:])
-        second_children_wrapper = lambda combination_table_row : combine_parents(combination_table_row[1], combination_table_row[0], combination_table_row[2:])
+    def _combine_parents(self, parent_1_id, parent_2_id, node_id_permutation):
+        node_num = len(node_id_permutation)
+        parent_2_node_ids = node_id_permutation[-node_num//2:]
+        parent_2_row_ids = np.hstack((parent_2_node_ids, parent_2_node_ids+node_num, parent_2_node_ids+node_num*2))
+        new_row = self.x[parent_1_id, :].copy()
+        new_row[parent_2_row_ids] = self.x[parent_2_id, parent_2_row_ids]
+        return new_row
+
+    def _crossover(self, selected_indices):
+        first_children_wrapper = lambda combination_table_row : self._combine_parents(combination_table_row[0], combination_table_row[1], combination_table_row[2:])
+        second_children_wrapper = lambda combination_table_row : self._combine_parents(combination_table_row[1], combination_table_row[0], combination_table_row[2:])
 
         children_num = self.population_size - len(selected_indices)
         #indices = np.arange(children_num).reshape(children_num, 1)
-        combination_table = np.hstack((select_parent_ids(children_num), permute_node_ids(children_num)))
+        parent_ids = self._select_parent_ids(children_num//2)
+        combination_table = np.hstack((parent_ids, self._permute_node_ids(children_num//2, parent_ids)))
         first_children = np.apply_along_axis(first_children_wrapper, 1, combination_table)
         second_children = np.apply_along_axis(second_children_wrapper, 1, combination_table)
         best_values = self.x[selected_indices, :].copy()
@@ -186,7 +189,9 @@ class NaiveGA(GA):
         return population
 
     def _update_fitness_values(self):
-        self.fitness_values = np.apply_along_axis(self.evaluator, 1, self.x, self.problem).astype(np.float32)
+        evaluation = np.apply_along_axis(self.evaluator, 1, self.x, self.problem, True).astype(np.float32)
+        self.fitness_values = evaluation[:,0]
+        self.edgewise_fitness_values = evaluation[:,0:]
 
     def _update_bests(self):
         argmin = np.argmin(self.fitness_values)

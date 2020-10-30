@@ -35,7 +35,7 @@ h7[4:,1] = True
 h8[:4,0] = True
 h8[4:,1] = True
 np.random.seed = 101
-h9 = RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.1)
+h9 = RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.2)
 
 h = h9
 
