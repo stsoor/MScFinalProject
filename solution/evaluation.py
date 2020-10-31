@@ -414,6 +414,7 @@ class DistanceModelEvaluator(Evaluator):
 
         #intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
         global_score = edgewise_scores.mean()
+        #global_score = edgewise_scores.max()
         global_score += self.min_distance_weight * min_distance_measure * min_distance_occurence_num
         #global_score += intersection_measure_weight * intersection_measure
 

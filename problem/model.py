@@ -66,6 +66,11 @@ class NodewiseDistanceModel(ProblemModel):
                 all_components.append(edge_components)
         
         return all_components
+    
+    def get_hypergraph_as_graph(self):
+        incidence = (self.hypergraph @ self.hypergraph.T)
+        np.fill_diagonal(incidence, False)
+        return nx.from_numpy_matrix(incidence)
 
     def get_vector_lower_bounds(self):
         return np.full(self._node_num*3, 0.0, dtype=np.float32)
@@ -77,4 +82,3 @@ class NodewiseDistanceModel(ProblemModel):
         upper_bounds[self._node_num:2*self._node_num] = canvas_height
         upper_bounds[2*self._node_num:] = canvas_width * canvas_height # sqrt(x^2+y^2) <= x*y
         return upper_bounds
-
