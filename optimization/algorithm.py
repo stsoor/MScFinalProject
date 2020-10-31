@@ -153,8 +153,9 @@ class NaiveGA(GA):
             new_row = np.array([parent_1_id, np.random.choice(np.arange(self.population_size), p=probabilities_without_parent_1)], dtype=np.int32)
             return new_row
 
-        fitness_values_sum = self.fitness_values.sum()
-        fitness_implied_probabilities = (self.fitness_values / fitness_values_sum)
+        ascending_fitness_values = (self.fitness_values.max() - self.fitness_values)
+        fitness_values_sum = ascending_fitness_values.sum()
+        fitness_implied_probabilities = ascending_fitness_values / fitness_values_sum
         parent_1s = np.random.choice(np.arange(self.population_size), size=(parent_num,1), p=fitness_implied_probabilities, replace=True)
         parents = np.apply_along_axis(add_second_parent, 1, parent_1s, fitness_implied_probabilities, fitness_values_sum)
         return parents
