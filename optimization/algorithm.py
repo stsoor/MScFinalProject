@@ -145,10 +145,18 @@ class NaiveGA(GA):
         return selected_indices
 
     def _select_parent_ids(self, parent_num):
-        parent_1s = np.random.randint(0, self.population_size, size=(parent_num,1)) # assertion is in place so children is always even
-        parent_2s = np.random.randint(0, self.population_size - 1, size=(parent_num,1))
-        parent_2s[np.where(parent_1s <= parent_2s)] += 1
-        parents = np.hstack((parent_1s, parent_2s))
+        def add_second_parent(parent_1_array, fitness_implied_probabilities, fitness_values_sum):
+            parent_1_id = parent_1_array[0]
+            parent_1_fitness = fitness_implied_probabilities[parent_1_id] * fitness_values_sum
+            probabilities_without_parent_1 = fitness_implied_probabilities * fitness_values_sum / (fitness_values_sum - parent_1_fitness)
+            probabilities_without_parent_1[parent_1_id] = 0.0
+            new_row = np.array([parent_1_id, np.random.choice(np.arange(self.population_size), p=probabilities_without_parent_1)], dtype=np.int32)
+            return new_row
+
+        fitness_values_sum = self.fitness_values.sum()
+        fitness_implied_probabilities = (self.fitness_values / fitness_values_sum)
+        parent_1s = np.random.choice(np.arange(self.population_size), size=(parent_num,1), p=fitness_implied_probabilities, replace=True)
+        parents = np.apply_along_axis(add_second_parent, 1, parent_1s, fitness_implied_probabilities, fitness_values_sum)
         return parents
     
     def _permute_node_ids(self, parent_num, parent_ids):
