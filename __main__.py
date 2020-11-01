@@ -2,7 +2,7 @@ from problem.model import Hypergraph, RandomHypergraph, NodewiseDistanceModel
 from utilities.random import RandomGenerator
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
-from solution.initializer import DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer, SpringDistanceSolutionInitializer
+from solution.initializer import DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer, SpringDistanceSolutionInitializer, InitializerBlender
 from optimization.algorithm import PSO, NaiveGA, EdgewiseGA
 import cv2
 import numpy as np
@@ -34,7 +34,7 @@ h7[:4,0] = True
 h7[4:,1] = True
 h8[:4,0] = True
 h8[4:,1] = True
-np.random.seed = 101
+np.random.seed(101)
 h9 = RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.2)
 
 h = h9
@@ -59,9 +59,10 @@ evaluator = DistanceModelEvaluator(
                  intersection_measure_weight = 1000.0,
                  debug_wait_key=None)
 #print(evaluator(x))
-initializer = EdgewiseRandomDistanceSolutionInitializer
+#initializer = EdgewiseRandomDistanceSolutionInitializer
 #initializer = DistanceSolutionInitializer
-#initializer = SpringDistanceSolutionInitializer
+initializer = SpringDistanceSolutionInitializer
+#initializer = InitializerBlender([SpringDistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3])
 #alg = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
 #alg = NaiveGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
 alg = EdgewiseGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)

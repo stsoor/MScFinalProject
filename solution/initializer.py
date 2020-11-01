@@ -84,3 +84,26 @@ class EdgewiseRandomDistanceSolutionInitializer(DistanceSolutionInitializer):
         x = np.hstack((node_x_values, node_y_values, node_d_values))
 
         return x
+
+class InitializerBlender:
+    def __init__(self, initializers, weights):
+        self.initializers = initializers
+        self.weights = np.array(weights)
+
+        assert len(initializers) == len(weights), 'not the same number of elements in initializers and weights'
+        assert np.abs(self.weights.sum() - 1) <= 1e-8, 'sum of weights is not 1'
+    
+    def __call__(self, problem, dimensionality):
+        selected_x_parts = []
+        selected_row_num_sum = 0
+        for i in range(len(self.initializers)):
+            x = self.initializers[i](problem, dimensionality)
+            row_num = x.shape[0]
+            selected_row_num = int(row_num * self.weights[i]) if i != len(self.initializers) - 1 else row_num - selected_row_num_sum
+            row_indices = np.arange(row_num)
+            np.random.shuffle(row_indices)
+            selected_row_ids = row_indices[:selected_row_num]
+            selected_x_parts.append(x[selected_row_ids,:])
+            selected_row_num_sum += selected_row_num
+        x = np.vstack(selected_x_parts)
+        return x
