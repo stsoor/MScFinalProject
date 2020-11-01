@@ -112,7 +112,7 @@ class GA: # genetic Algorithm (instead of fitness value we use an objective func
         raise NotImplementedError
 
 class NaiveGA(GA):
-    def __init__(self, problem, initializer, evaluator, population_size, selection_pct, mutation_random_generator, max_iteration_num, min_value_change=1e-8, debug_wait_key=None):
+    def __init__(self, problem, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, min_value_change=1e-8, debug_wait_key=None):
         super().__init__(problem, initializer, evaluator, population_size, selection_pct, max_iteration_num, min_value_change, debug_wait_key)
         self.evaluator = evaluator
         self.problem = problem
@@ -120,6 +120,7 @@ class NaiveGA(GA):
         self.upper_bounds = problem.get_vector_upper_bounds()
         self.initializer = initializer
         self.selection_pct = np.float32(selection_pct)
+        self.mutation_pct = np.float32(mutation_pct)
         self.mutation_random_generator = mutation_random_generator
         self.max_iteration_num = max_iteration_num
         self.min_value_change = min_value_change
@@ -193,6 +194,7 @@ class NaiveGA(GA):
     def _mutation(self, population, selected_indices):
         mutation = self.mutation_random_generator(size=population.shape)
         mutation[selected_indices, :] = 0
+        mutation[np.random.random(size=mutation.shape) > self.mutation_pct] = 0
         population += mutation
         np.clip(population, self.lower_bounds, self.upper_bounds, out=population)
         return population

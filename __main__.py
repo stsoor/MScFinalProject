@@ -59,13 +59,13 @@ evaluator = DistanceModelEvaluator(
                  intersection_measure_weight = 1000.0,
                  debug_wait_key=None)
 #print(evaluator(x))
-#initializer = EdgewiseRandomDistanceSolutionInitializer
+initializer = EdgewiseRandomDistanceSolutionInitializer
 #initializer = DistanceSolutionInitializer
-initializer = SpringDistanceSolutionInitializer
+#initializer = SpringDistanceSolutionInitializer
 #initializer = InitializerBlender([SpringDistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3])
 #alg = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
 #alg = NaiveGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
-alg = EdgewiseGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
+alg = EdgewiseGA(problem, initializer, evaluator, 100, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
 best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
 
