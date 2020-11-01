@@ -144,7 +144,7 @@ class NaiveGA(GA):
         selected_indices = self.fitness_values.argsort()[:num_selected]
         return selected_indices
 
-    def _select_parent_ids(self, parent_num):
+    def _select_parent_ids(self, parent_pair_num):
         def add_second_parent(parent_1_array, fitness_implied_probabilities, fitness_values_sum):
             parent_1_id = parent_1_array[0]
             parent_1_fitness = fitness_implied_probabilities[parent_1_id] * fitness_values_sum
@@ -156,13 +156,13 @@ class NaiveGA(GA):
         ascending_fitness_values = (self.fitness_values.max() - self.fitness_values)
         fitness_values_sum = ascending_fitness_values.sum()
         fitness_implied_probabilities = ascending_fitness_values / fitness_values_sum
-        parent_1s = np.random.choice(np.arange(self.population_size), size=(parent_num,1), p=fitness_implied_probabilities, replace=True)
+        parent_1s = np.random.choice(np.arange(self.population_size), size=(parent_pair_num,1), p=fitness_implied_probabilities, replace=True)
         parents = np.apply_along_axis(add_second_parent, 1, parent_1s, fitness_implied_probabilities, fitness_values_sum)
         return parents
     
-    def _permute_node_ids(self, parent_num, parent_ids):
+    def _permute_node_ids(self, parent_pair_num, parent_ids):
         node_num = self.problem.hypergraph.shape[0]
-        id_grid = np.tile(np.arange(node_num),(parent_num, 1)) # assertion is in place so children is always even
+        id_grid = np.tile(np.arange(node_num),(parent_pair_num, 1)) # assertion is in place so children is always even
         np.apply_along_axis(np.random.shuffle, 1, id_grid) # does it in place, so the columns of id_grid are shuffled now (row by row)
         return id_grid
 
@@ -200,7 +200,7 @@ class NaiveGA(GA):
     def _update_fitness_values(self):
         evaluation = np.apply_along_axis(self.evaluator, 1, self.x, self.problem, True).astype(np.float32)
         self.fitness_values = evaluation[:,0]
-        self.edgewise_fitness_values = evaluation[:,0:]
+        self.edgewise_fitness_values = evaluation[:,1:]
 
     def _update_bests(self):
         argmin = np.argmin(self.fitness_values)
@@ -234,3 +234,57 @@ class NaiveGA(GA):
     def __call__(self):
         self._setup_optimization()
         return self._run()
+
+class EdgewiseGA(NaiveGA):
+    def _select_gene_parents(self, parent_ids):
+        def ensure_equal_inheritance(parent_1_gene_mask, parent_nodewise_fitness_values_difference):
+            parent_1_gene_num = parent_1_gene_mask.sum()
+            if parent_1_gene_num > parent_1_gene_mask.size // 2:
+                to_flip_num = parent_1_gene_num - (parent_1_gene_mask.size // 2)
+                argsort = np.argsort(parent_nodewise_fitness_values_difference[parent_1_gene_mask])
+                to_flip_args = argsort[:to_flip_num]
+                to_flip_genes = np.where(parent_1_gene_mask)[0][to_flip_args]
+                parent_1_gene_mask[to_flip_genes] = False
+            else:
+                parent_2_gene_mask = ~parent_1_gene_mask
+                to_flip_num = (parent_1_gene_mask.size // 2) - parent_1_gene_num
+                argsort = np.argsort(parent_nodewise_fitness_values_difference[parent_2_gene_mask])
+                to_flip_args = argsort[:to_flip_num]
+                to_flip_genes = np.where(parent_2_gene_mask)[0][to_flip_args]
+                parent_2_gene_mask[to_flip_genes] = False
+                parent_1_gene_mask = ~parent_2_gene_mask
+            return parent_1_gene_mask
+
+        parent_1_edgewise_fitness_values = np.apply_along_axis(lambda parent_pair: self.edgewise_fitness_values[parent_pair[0], :], 1, parent_ids)
+        parent_2_edgewise_fitness_values = np.apply_along_axis(lambda parent_pair: self.edgewise_fitness_values[parent_pair[1], :], 1, parent_ids)
+        edge_counts = np.apply_along_axis(np.sum, 1, self.problem.hypergraph)
+        edge_counts[edge_counts == 0] = 1
+        parent_1_nodewise_fitness_values = np.apply_along_axis(lambda edgewise_fitness, edge_counts: (self.problem.hypergraph @ edgewise_fitness) / edge_counts, 1, parent_1_edgewise_fitness_values, edge_counts)
+        parent_2_nodewise_fitness_values = np.apply_along_axis(lambda edgewise_fitness, edge_counts: (self.problem.hypergraph @ edgewise_fitness) / edge_counts, 1, parent_2_edgewise_fitness_values, edge_counts)
+        parent_nodewise_fitness_values_differences = np.abs(parent_1_nodewise_fitness_values - parent_2_nodewise_fitness_values)
+
+        parent_1_gene_masks = (parent_1_nodewise_fitness_values <= parent_2_nodewise_fitness_values)
+        for row in range(len(parent_1_gene_masks)):
+            parent_1_gene_masks[row,:] = ensure_equal_inheritance(parent_1_gene_masks[row], parent_nodewise_fitness_values_differences[row])
+        
+        return parent_1_gene_masks
+
+    def _combine_parents(self, parent_1_id, parent_2_id, parent_1_gene_mask):
+        full_mask = np.hstack((parent_1_gene_mask, parent_1_gene_mask, parent_1_gene_mask))
+        new_row = self.x[parent_2_id, :].copy()
+        new_row[full_mask] = self.x[parent_1_id, full_mask]
+        return new_row
+
+    def _crossover(self, selected_indices):
+        children_num = self.population_size - len(selected_indices)
+        parent_ids = self._select_parent_ids(children_num)
+        parent_1_gene_masks = self._select_gene_parents(parent_ids)
+        
+        children = np.empty((self.x.shape[0] - len(selected_indices), self.x.shape[1]), dtype=np.float32)
+        for row in range(len(parent_1_gene_masks)):
+            parent_1_id, parent_2_id = parent_ids[row,:]
+            children[row,:] = self._combine_parents(parent_1_id, parent_2_id, parent_1_gene_masks[row])
+        best_values = self.x[selected_indices, :].copy()
+        new_population = np.vstack((best_values, children))
+
+        return new_population

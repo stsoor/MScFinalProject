@@ -3,7 +3,7 @@ from utilities.random import RandomGenerator
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
 from solution.initializer import DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer, SpringDistanceSolutionInitializer
-from optimization.algorithm import PSO, NaiveGA
+from optimization.algorithm import PSO, NaiveGA, EdgewiseGA
 import cv2
 import numpy as np
 
@@ -50,8 +50,8 @@ evaluator = DistanceModelEvaluator(intersection_measure_weight = 1.0, debug_wait
 evaluator = DistanceModelEvaluator(
                  edge_count_weight = 1000.0,
                  circularity_weight = 10.0,
-                 not_missing_containment_weight = 1000.0,
-                 not_miscontained_weight = 1000.0,
+                 not_missing_containment_weight = 10000.0,
+                 not_miscontained_weight = 10000.0,
                  no_single_separation_weight = 1000.0,
                  min_distance_weight = 100.0,
                  nodes_at_min_distance_weight = 10.0,
@@ -62,8 +62,9 @@ evaluator = DistanceModelEvaluator(
 initializer = EdgewiseRandomDistanceSolutionInitializer
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
-alg = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
+#alg = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
 #alg = NaiveGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
+alg = EdgewiseGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
 best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
 
