@@ -76,7 +76,7 @@ class DistanceModelEvaluator(Evaluator):
     def _calculate_miscontained_nodes_measure(self, problem, segment_vertex_ids, convex_hull, all_positions, r): # O(S*((n-d)*d + d*log(d))) <= O(n^3)    
         miscontained_vertex_num = 0
         #segment_vertex_num = 0
-        max_possible_distance_to_polygon = np.linalg.norm(np.array(problem.size) / 2.0) # TODO
+        max_possible_distance_to_polygon = np.linalg.norm(problem.size[0] * problem.size[1])
         for vertex_id in range(all_positions.shape[0]):
             if vertex_id in segment_vertex_ids:
                 #segment_vertex_num += 1
@@ -301,7 +301,6 @@ class DistanceModelEvaluator(Evaluator):
                 return True
             return False
         def do_2_3_len_intersect(all_positions, len_2_segment_list, len_3_segment_list, r):
-            pass # TODO
             start_1, end_1 = all_positions[len_2_segment_list]
             hull_2_line_endpoint_ids = [[len_3_segment_list[i], len_3_segment_list[(i+1) % len(len_3_segment_list)]] for i in range(len(len_3_segment_list))]
             rectangle_corners = self._calculate_two_point_rectangle_corners(start_1, end_1, r)
