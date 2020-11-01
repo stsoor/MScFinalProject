@@ -3,7 +3,8 @@ from utilities.random import RandomGenerator
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
 from solution.initializer import DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer, SpringDistanceSolutionInitializer, InitializerBlender
-from optimization.algorithm import PSO, NaiveGA, EdgewiseGA
+from optimization.algorithm.particle_swarm_optimization import PSO
+from optimization.algorithm.genetic_algorithm import NaiveGA, EdgewiseGA
 import cv2
 import numpy as np
 
