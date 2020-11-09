@@ -1,8 +1,8 @@
 import numpy as np
 from solution.drawing import HypergraphDrawer
 
-class PSO: # Particle Swarm Optimization
-    def __init__(self, problem, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, min_value_change=1e-8, debug_wait_key=None):
+class HypergraphPSO: # Particle Swarm Optimization
+    def __init__(self, problem, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, min_value_change=1e-8, debug=None):
         # velocity_(T+1) = w*velocity_(T) + c_1*random_1*(best_particle_pos-current_pos) + c_2*random_2*(best_global_pos-current_pos)
         self.evaluator = evaluator
         self.problem = problem
@@ -15,7 +15,7 @@ class PSO: # Particle Swarm Optimization
         self.max_iteration_num = max_iteration_num
         self.min_value_change = min_value_change
 
-        self.debug_wait_key = debug_wait_key
+        self.debug = debug
         
         self.particle_num = particle_num
         self.dimensions = len(self.lower_bounds)
@@ -23,7 +23,7 @@ class PSO: # Particle Swarm Optimization
         # self._setup_optimization() - add more members
     
     def _update_current_objective_values(self):
-        self.current_particle_values = np.apply_along_axis(self.evaluator, 1, self.x, self.problem).astype(np.float32)
+        self.current_particle_values = np.apply_along_axis(self.evaluator, 1, self.x).astype(np.float32)[:,0]
         
     def _update_particle_bests(self):
         improvement_mask = (self.current_particle_values < self.best_particle_values)
@@ -36,9 +36,9 @@ class PSO: # Particle Swarm Optimization
             self.best_global_value = self.best_particle_values[argmin]
             self.best_global_position = self.best_particle_positions[argmin, :].copy()
 
-            if self.debug_wait_key is not None:
+            if self.debug is not None:
                 drawer = HypergraphDrawer(self.problem, self.best_global_position)
-                drawer.show(wait_key=self.debug_wait_key)
+                drawer.show(wait_key=self.debug)
                 print(self.best_global_value)
     
     def _update_velocities(self, w, c_1, c_2):
@@ -57,7 +57,7 @@ class PSO: # Particle Swarm Optimization
         
         self.velocities = np.random.uniform(0, 1, size=(self.particle_num, self.dimensions))
         self.velocities = -bounds_range + self.lower_bounds + self.velocities * 2 * bounds_range # (bounds_range - -bounds_range) - max possible values - min possible values
-        self.x = self.initializer(self.problem, self.particle_num) # current particle positions
+        self.x = self.initializer() # current particle positions
         self.current_particle_values = np.zeros(self.particle_num, dtype=np.float32)
         self.best_particle_positions = np.zeros(self.x.shape, dtype=self.x.dtype)
         self.best_particle_values = np.full(self.x.shape[0], np.inf, dtype=np.float32)
@@ -83,7 +83,7 @@ class PSO: # Particle Swarm Optimization
             if prev_best_global_value != self.best_global_value and np.abs(prev_best_global_value - self.best_global_value) <= self.min_value_change:
                 return self.best_global_value, self.best_global_position, iteration
                 
-            if self.debug_wait_key is not None:
+            if self.debug is not None:
                 print(iteration)
 
         return self.best_global_value, self.best_global_position, iteration

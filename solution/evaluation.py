@@ -21,7 +21,7 @@ class DistanceModelEvaluator(Evaluator):
                  nodes_at_min_distance_weight = 1.0,
                  area_proportionality_weight = 1.0,
                  intersection_measure_weight = 1.0,
-                 debug_wait_key=None):
+                 debug=None):
         self.edge_count_weight              = edge_count_weight
         self.circularity_weight             = circularity_weight
         self.not_missing_containment_weight = not_missing_containment_weight
@@ -32,7 +32,7 @@ class DistanceModelEvaluator(Evaluator):
         self.nodes_at_min_distance_weight   = nodes_at_min_distance_weight
         self.area_proportionality_weight    = area_proportionality_weight
         self.intersection_measure_weight    = intersection_measure_weight
-        self.debug_wait_key = debug_wait_key
+        self.debug = debug
 
     # best [0,1] worst
     def _calculate_nodes_not_missing_ratio(self): # O(m)
@@ -420,13 +420,13 @@ class DistanceModelEvaluator(Evaluator):
         return edgewise_scores, global_score
 
     def __call__(self, x, problem, return_edgwise_scores=False): # order is needed for apply_along_axis
-        if self.debug_wait_key is not None:
+        if self.debug is not None:
             drawer = HypergraphDrawer(problem, x)
-            drawer.show(wait_key=self.debug_wait_key)
+            drawer.show(wait_key=self.debug)
 
         _edgewise_scores, global_score = self.get_edgewise_and_global_scores(problem, x)
 
-        if self.debug_wait_key is not None:
+        if self.debug is not None:
             print(global_score)
 
         if return_edgwise_scores:

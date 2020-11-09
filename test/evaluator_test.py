@@ -33,7 +33,7 @@ class DistanceModelEvaluatorTest(unittest.TestCase):
                         nodes_at_min_distance_weight = 0,
                         area_proportionality_weight = 0,
                         intersection_measure_weight = 0,
-                        debug_wait_key=None)
+                        debug=None)
         return evaluator
     
     def test_edge_count(self):

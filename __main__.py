@@ -3,8 +3,9 @@ from utilities.random import RandomGenerator
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
 from solution.initializer import DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer, SpringDistanceSolutionInitializer, InitializerBlender
-from optimization.algorithm.particle_swarm_optimization import PSO
-from optimization.algorithm.genetic_algorithm import NaiveGA, EdgewiseGA
+from optimization.algorithm.particle_swarm_optimization import HypergraphPSO
+from optimization.algorithm.genetic_algorithm import NaiveMultiRowHypergraphGA, EdgewiseHypergraphGA
+from utilities.callable_coupling import CallableCoupling
 import cv2
 import numpy as np
 
@@ -47,7 +48,7 @@ problem = NodewiseDistanceModel(h, 10, 1080, 720)
 
 #print(components)
 
-evaluator = DistanceModelEvaluator(intersection_measure_weight = 1.0, debug_wait_key=None)
+evaluator = DistanceModelEvaluator(intersection_measure_weight = 1.0, debug=None)
 evaluator = DistanceModelEvaluator(
                  edge_count_weight = 1000.0,
                  circularity_weight = 10.0,
@@ -58,15 +59,20 @@ evaluator = DistanceModelEvaluator(
                  nodes_at_min_distance_weight = 10.0,
                  area_proportionality_weight = 10.0,
                  intersection_measure_weight = 1000.0,
-                 debug_wait_key=None)
+                 debug=None)
+evaluator = CallableCoupling(evaluator, problem, True, _add_call_args_before=True)
+
 #print(evaluator(x))
+population_size = 100
 initializer = EdgewiseRandomDistanceSolutionInitializer
+initializer = CallableCoupling(initializer, problem, population_size)
+
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
 #initializer = InitializerBlender([SpringDistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3])
-#alg = PSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug_wait_key=20)
-#alg = NaiveGA(problem, initializer, evaluator, 100, 0.2, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
-alg = EdgewiseGA(problem, initializer, evaluator, 100, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug_wait_key=20)
+#alg = HypergraphPSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20)
+#alg = NaiveMultiRowHypergraphGA(problem, initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20)
+alg = EdgewiseHypergraphGA(problem, initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20)
 best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
 

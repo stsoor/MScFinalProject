@@ -2,10 +2,11 @@ import numpy as np
 from solution.drawing import HypergraphDrawer
 
 class GA: # genetic Algorithm (instead of fitness value we use an objective function [lower value is better] here too)
-    def __init__(self, problem, initializer, evaluator, population_size, selection_pct, max_iteration_num, min_value_change=1e-8, debug_wait_key=None):
+    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
         #assert int(selection_pct * population_size) * int(1.0 / selection_pct) == population_size, 'the given percentage would yield inconsistent population size'
         #pass
         assert int(population_size - population_size*selection_pct) % 2 == 0, 'the number of not selected population has to be even'
+        assert len(lower_bounds) == len(upper_bounds)
 
     def _selection(self):
         raise NotImplementedError
@@ -20,29 +21,25 @@ class GA: # genetic Algorithm (instead of fitness value we use an objective func
         raise NotImplementedError
 
 class NaiveGA(GA):
-    def __init__(self, problem, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, min_value_change=1e-8, debug_wait_key=None):
-        super().__init__(problem, initializer, evaluator, population_size, selection_pct, max_iteration_num, min_value_change, debug_wait_key)
+    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
+        super().__init__(lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
         self.evaluator = evaluator
-        self.problem = problem
-        self.lower_bounds = problem.get_vector_lower_bounds()
-        self.upper_bounds = problem.get_vector_upper_bounds()
+        self.lower_bounds = lower_bounds
+        self.upper_bounds = upper_bounds
         self.initializer = initializer
         self.selection_pct = np.float32(selection_pct)
         self.mutation_pct = np.float32(mutation_pct)
         self.mutation_random_generator = mutation_random_generator
         self.max_iteration_num = max_iteration_num
-        self.min_value_change = min_value_change
 
-        self.debug_wait_key = debug_wait_key
+        self.debug = debug
         
         self.population_size = population_size
-        self.dimensions = len(problem.get_vector_lower_bounds())
+        self.dimension = len(lower_bounds)
 
     def _setup_optimization(self):
-        self.x = self.initializer(self.problem, self.population_size) # current particle positions
+        self.x = self.initializer() # current particle positions
         self.fitness_values = np.zeros(self.population_size, dtype=np.float32)
-        edge_num = self.problem.hypergraph.shape[1]
-        self.edgewise_fitness_values = np.zeros((self.population_size, edge_num), dtype=np.float32)
         self.best_position = np.array([], dtype=self.x.dtype)
         self.best_value = np.inf
 
@@ -69,18 +66,15 @@ class NaiveGA(GA):
         parents = np.apply_along_axis(add_second_parent, 1, parent_1s, fitness_implied_probabilities, fitness_values_sum)
         return parents
     
-    def _permute_node_ids(self, parent_pair_num, parent_ids):
-        node_num = self.problem.hypergraph.shape[0]
-        id_grid = np.tile(np.arange(node_num),(parent_pair_num, 1)) # assertion is in place so children is always even
+    def _permute_gene_ids(self, parent_pair_num, parent_ids):
+        id_grid = np.tile(np.arange(self.dimension),(parent_pair_num, 1))
         np.apply_along_axis(np.random.shuffle, 1, id_grid) # does it in place, so the columns of id_grid are shuffled now (row by row)
         return id_grid
 
-    def _combine_parents(self, parent_1_id, parent_2_id, node_id_permutation):
-        node_num = len(node_id_permutation)
-        parent_2_node_ids = node_id_permutation[-node_num//2:]
-        parent_2_row_ids = np.hstack((parent_2_node_ids, parent_2_node_ids+node_num, parent_2_node_ids+node_num*2))
+    def _combine_parents(self, parent_1_id, parent_2_id, gene_id_permutation):
+        parent_2_gene_ids = gene_id_permutation[-self.dimension//2:]
         new_row = self.x[parent_1_id, :].copy()
-        new_row[parent_2_row_ids] = self.x[parent_2_id, parent_2_row_ids]
+        new_row[parent_2_gene_ids] = self.x[parent_2_id, parent_2_gene_ids]
         return new_row
 
     def _crossover(self, selected_indices):
@@ -90,7 +84,7 @@ class NaiveGA(GA):
         children_num = self.population_size - len(selected_indices)
         #indices = np.arange(children_num).reshape(children_num, 1)
         parent_ids = self._select_parent_ids(children_num//2)
-        combination_table = np.hstack((parent_ids, self._permute_node_ids(children_num//2, parent_ids)))
+        combination_table = np.hstack((parent_ids, self._permute_gene_ids(children_num//2, parent_ids)))
         first_children = np.apply_along_axis(first_children_wrapper, 1, combination_table)
         second_children = np.apply_along_axis(second_children_wrapper, 1, combination_table)
         best_values = self.x[selected_indices, :].copy()
@@ -108,9 +102,9 @@ class NaiveGA(GA):
         return population
 
     def _update_fitness_values(self):
-        evaluation = np.apply_along_axis(self.evaluator, 1, self.x, self.problem, True).astype(np.float32)
+        evaluation = np.apply_along_axis(self.evaluator, 1, self.x).astype(np.float32)
         self.fitness_values = evaluation[:,0]
-        self.edgewise_fitness_values = evaluation[:,1:]
+        return evaluation
 
     def _update_bests(self):
         argmin = np.argmin(self.fitness_values)
@@ -118,10 +112,8 @@ class NaiveGA(GA):
             self.best_value = self.fitness_values[argmin]
             self.best_position = self.x[argmin, :].copy()
 
-            if self.debug_wait_key is not None:
-                drawer = HypergraphDrawer(self.problem, self.best_position)
-                drawer.show(wait_key=self.debug_wait_key)
-                print(self.best_value)
+            return True
+        return False
 
     def _update(self):
         self._update_fitness_values()
@@ -136,7 +128,7 @@ class NaiveGA(GA):
             self.x = self._mutation(new_population, selected_indices)
             self._update()
 
-            if self.debug_wait_key is not None:
+            if self.debug is not None:
                 print(iteration)
 
         return self.best_value, self.best_position, iteration
@@ -145,7 +137,49 @@ class NaiveGA(GA):
         self._setup_optimization()
         return self._run()
 
-class EdgewiseGA(NaiveGA):
+class NaiveMultiRowGA(NaiveGA):
+    def __init__(self, row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
+        assert len(lower_bounds) >= row_size
+        assert len(lower_bounds) % row_size == 0
+        super().__init__(lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
+        self.row_size = row_size
+
+    def _permute_gene_ids(self, parent_pair_num, parent_ids): # override
+        id_grid = np.tile(np.arange(self.row_size),(parent_pair_num, 1)) # assertion is in place so children is always even
+        np.apply_along_axis(np.random.shuffle, 1, id_grid) # does it in place, so the columns of id_grid are shuffled now (row by row)
+        return id_grid
+
+    def _combine_parents(self, parent_1_id, parent_2_id, gene_id_permutation): # override
+        parent_2_row_ids = gene_id_permutation[-self.row_size//2:]
+        row_num = int(self.dimension // self.row_size)
+        starting_points = tuple([parent_2_row_ids + i*self.row_size for i in range(row_num)])
+        parent_2_gene_ids = np.hstack(starting_points)
+        new_row = self.x[parent_1_id, :].copy()
+        new_row[parent_2_gene_ids] = self.x[parent_2_id, parent_2_gene_ids]
+        return new_row
+
+class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
+    def __init__(self, problem, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
+        super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
+        self.problem = problem
+
+    def _setup_optimization(self): # override
+        edge_num = self.problem.hypergraph.shape[1]
+        self.edgewise_fitness_values = np.zeros((self.population_size, edge_num), dtype=np.float32)
+        super()._setup_optimization()
+
+    def _update_fitness_values(self):
+        evaluation = super()._update_fitness_values()
+        self.edgewise_fitness_values = evaluation[:,1:]
+
+    def _update_bests(self):
+        is_updated = super()._update_bests()
+        if is_updated and self.debug is not None:
+            drawer = HypergraphDrawer(self.problem, self.best_position)
+            drawer.show(wait_key=self.debug)
+            print(self.best_value)
+
+class EdgewiseHypergraphGA(NaiveMultiRowHypergraphGA):
     def _select_gene_parents(self, parent_ids):
         def ensure_equal_inheritance(parent_1_gene_mask, parent_nodewise_fitness_values_difference):
             parent_1_gene_num = parent_1_gene_mask.sum()
