@@ -64,8 +64,10 @@ evaluator = CallableCoupling(evaluator, problem, True, _add_call_args_before=Tru
 
 #print(evaluator(x))
 population_size = 100
+#initializer = DistanceSolutionInitializer
 initializer = EdgewiseRandomDistanceSolutionInitializer
-initializer = CallableCoupling(initializer, problem, population_size)
+#initializer = SpringDistanceSolutionInitializer
+initializer = CallableCoupling(initializer, problem, population_size, use_closest_node_distance=False)
 
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer

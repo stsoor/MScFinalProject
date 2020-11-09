@@ -29,7 +29,7 @@ class NodewiseDistanceModel(ProblemModel):
         super(NodewiseDistanceModel, self).__init__(hypergraph, min_node_distance, canvas_width, canvas_height)
         self._node_num, self._edge_num = self.hypergraph.shape
 
-    def _calculate_distance_matrix(self, x):
+    def calculate_distance_matrix(self, x):
         positions = self.extract_positions2D(x)
         return distance_matrix(positions, positions, threshold=10**8) # pdist would give a more compact distance descriptor
 
@@ -42,7 +42,7 @@ class NodewiseDistanceModel(ProblemModel):
         return np.minimum.outer(distance_thresholds, distance_thresholds) # (for np.minimum.outer) pylint: disable=no-member
 
     def _is_in_threshold(self, x):
-        return self._calculate_distance_matrix(x) <= self._calculate_min_thresholds(x)
+        return self.calculate_distance_matrix(x) <= self._calculate_min_thresholds(x)
 
     def extract_positions2D(self, x):
         assert(len(x) == self._node_num*3)

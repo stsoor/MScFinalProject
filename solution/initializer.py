@@ -2,11 +2,12 @@ import numpy as np
 import networkx as nx
 
 class Initializer:
-    def __new__(self, problem, dimensionality):
+    def __new__(self, problem, dimensionality, use_closest_node_distance=False):
         pass
 
 class DistanceSolutionInitializer(Initializer):
-    def __new__(self, problem, dimensionality):
+    def __new__(self, problem, dimensionality, use_closest_node_distance=False):
+
         node_num = problem.hypergraph.shape[0]
         lower_bounds = problem.get_vector_lower_bounds()
         upper_bounds = problem.get_vector_upper_bounds()
@@ -14,11 +15,32 @@ class DistanceSolutionInitializer(Initializer):
 
         x = np.random.uniform(0, 1, size=(dimensionality, node_num*3)) # current particle positions
         x = lower_bounds + x * bounds_range
+        x = self._apply_node_distance_override(x, problem, use_closest_node_distance)
 
         return x
 
+    @staticmethod
+    def _apply_node_distance_override(x, problem, use_closest_node_distance):
+        def override_row_with_closest_node_distance(x_row, problem):
+            distance_matrix = problem.calculate_distance_matrix(x_row)
+            max_distance = np.max(distance_matrix)
+            is_neighbour_table = (problem.hypergraph @ problem.hypergraph.T)
+            distance_matrix = distance_matrix * is_neighbour_table
+            distance_matrix[~is_neighbour_table] = max_distance
+            np.fill_diagonal(distance_matrix, max_distance)
+            closest_neighbour_distance = distance_matrix.min(axis=1).flatten()
+            node_num = problem.hypergraph.shape[0]
+            
+            new_row = np.hstack((x_row[:2*node_num], closest_neighbour_distance))
+            return new_row
+
+        if use_closest_node_distance:
+            x = np.apply_along_axis(override_row_with_closest_node_distance, 1, x, problem)
+        return x
+
+
 class SpringDistanceSolutionInitializer(DistanceSolutionInitializer):
-    def __new__(self, problem, dimensionality):
+    def __new__(self, problem, dimensionality, use_closest_node_distance=False):
 
         def build_x_row(G, node_num):
             position_dict = nx.spring_layout(nx_graph)
@@ -43,11 +65,12 @@ class SpringDistanceSolutionInitializer(DistanceSolutionInitializer):
         d_values = lower_bounds[2*node_num:] + d_values * bounds_range[2*node_num:]
 
         x = np.hstack((positions, d_values))
+        x = self._apply_node_distance_override(x, problem, use_closest_node_distance)
 
         return x
 
 class EdgewiseRandomDistanceSolutionInitializer(DistanceSolutionInitializer):
-    def __new__(self, problem, dimensionality):
+    def __new__(self, problem, dimensionality, use_closest_node_distance=False):
         epsilon = 1e-8
 
         node_num, edge_num = problem.hypergraph.shape
@@ -82,6 +105,7 @@ class EdgewiseRandomDistanceSolutionInitializer(DistanceSolutionInitializer):
         node_y_values[node_y_values_mask] = np.random.uniform(lower_bounds[node_num], upper_bounds[node_num], size=node_y_values_mask.sum())
 
         x = np.hstack((node_x_values, node_y_values, node_d_values))
+        x = self._apply_node_distance_override(x, problem, use_closest_node_distance)
 
         return x
 
