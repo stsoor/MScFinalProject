@@ -2,13 +2,13 @@ import numpy as np
 from solution.drawing import HypergraphDrawer
 
 class HypergraphPSO: # Particle Swarm Optimization
-    def __init__(self, problem, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, min_value_change=1e-8, debug=None):
+    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, min_value_change=1e-8, debug=None, problem=None):
         # velocity_(T+1) = w*velocity_(T) + c_1*random_1*(best_particle_pos-current_pos) + c_2*random_2*(best_global_pos-current_pos)
         self.evaluator = evaluator
         self.problem = problem
         self.initializer = initializer
-        self.lower_bounds = problem.get_vector_lower_bounds()
-        self.upper_bounds = problem.get_vector_upper_bounds()
+        self.lower_bounds = lower_bounds
+        self.upper_bounds = upper_bounds
         self.w = np.float32(w)
         self.c_1 = np.float32(c_1)
         self.c_2 = np.float32(c_2)
@@ -30,16 +30,19 @@ class HypergraphPSO: # Particle Swarm Optimization
         self.best_particle_positions[improvement_mask, :] = self.x[improvement_mask, :].copy()
         self.best_particle_values[improvement_mask] = self.current_particle_values[improvement_mask]
 
+    def _show_debug_info(self):
+       if self.debug is not None and self.problem is not None:
+           drawer = HypergraphDrawer(self.problem, self.best_global_position)
+           drawer.show(wait_key=self.debug)
+           print(self.best_global_value)
+
     def _update_global_bests(self):
         argmin = np.argmin(self.best_particle_values)
         if self.best_particle_values[argmin] < self.best_global_value:
             self.best_global_value = self.best_particle_values[argmin]
             self.best_global_position = self.best_particle_positions[argmin, :].copy()
 
-            if self.debug is not None:
-                drawer = HypergraphDrawer(self.problem, self.best_global_position)
-                drawer.show(wait_key=self.debug)
-                print(self.best_global_value)
+            self._show_debug_info()
     
     def _update_velocities(self, w, c_1, c_2):
         r_1 = np.random.uniform(0, 1, size=(self.particle_num, self.dimensions))

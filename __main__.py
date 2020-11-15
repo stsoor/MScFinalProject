@@ -72,23 +72,11 @@ initializer = CallableCoupling(initializer, problem, population_size, use_closes
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
 #initializer = InitializerBlender([SpringDistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3])
-#alg = HypergraphPSO(problem, initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20)
-#alg = NaiveMultiRowHypergraphGA(problem, initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20)
-alg = EdgewiseHypergraphGA(problem, initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20)
+#alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20, problem=problem)
+#alg = NaiveMultiRowHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
+alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
 best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
 
 drawer = HypergraphDrawer(problem, best_global_position)
-#drawer.show(colors=[[0,255,0],[255,0,0]])
 drawer.show()
-
-# initializer = DistanceModelInitializer
-
-# pso = PSO(evaluator, initializer, 5, 0.5, 0.5, 0.5, 100)
-# best_global_value, best_global_position, iteration = pso()
-
-# drawer = HypergraphDrawer(problem, components)
-# img = drawer()
-#img = drawer([[0,255,0],[255,0,0]])
-# cv2.imshow('Window', img)
-# cv2.waitKey(0)

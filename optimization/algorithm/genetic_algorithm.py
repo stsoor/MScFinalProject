@@ -1,4 +1,5 @@
 import numpy as np
+from problem.model import ProblemModel
 from solution.drawing import HypergraphDrawer
 
 class GA: # genetic Algorithm (instead of fitness value we use an objective function [lower value is better] here too)
@@ -159,7 +160,7 @@ class NaiveMultiRowGA(NaiveGA):
         return new_row
 
 class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
-    def __init__(self, problem, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
+    def __init__(self, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
         super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
         self.problem = problem
 
@@ -172,14 +173,22 @@ class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
         evaluation = super()._update_fitness_values()
         self.edgewise_fitness_values = evaluation[:,1:]
 
-    def _update_bests(self):
-        is_updated = super()._update_bests()
-        if is_updated and self.debug is not None:
+    def _show_debug_info(self):
+        if self.debug is not None and self.problem is not None:
             drawer = HypergraphDrawer(self.problem, self.best_position)
             drawer.show(wait_key=self.debug)
             print(self.best_value)
 
+    def _update_bests(self):
+        is_updated = super()._update_bests()
+        if is_updated:
+            self._show_debug_info()
+
 class EdgewiseHypergraphGA(NaiveMultiRowHypergraphGA):
+    def __init__(self, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
+        assert isinstance(problem, ProblemModel)
+        super().__init__(initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug, problem)
+
     def _select_gene_parents(self, parent_ids):
         def ensure_equal_inheritance(parent_1_gene_mask, parent_nodewise_fitness_values_difference):
             parent_1_gene_num = parent_1_gene_mask.sum()
