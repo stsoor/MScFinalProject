@@ -14,7 +14,12 @@ class Hypergraph:
 
 class RandomHypergraph:
     def __new__(self, node_num, edge_num, random_generator, inclusion_threshold):
-        return random_generator((node_num, edge_num)) <= inclusion_threshold
+        hypergraph = random_generator((node_num, edge_num)) <= inclusion_threshold
+        contained_node_num = np.sum(hypergraph, axis=0)
+        edges_to_override = np.where(contained_node_num == 0)
+        selected_nodes = np.random.randint(0, node_num, edge_num)
+        hypergraph[selected_nodes[edges_to_override], edges_to_override] = True
+        return hypergraph
 
 
 class ProblemModel:
