@@ -105,7 +105,7 @@ sigmoid = HypergraphConvolutionalNetwork.Activation.Sigmoid
 softmax = HypergraphConvolutionalNetwork.Activation.Softmax
 gcn = HypergraphConvolutionalNetwork([20, 6, 3], [softmax, softmax])
 
-best_global_value, iteration = gcn.train(problem, evaluator, population_size, 0.3, 0.3, RandomGenerator('normal', 0, 3), 5, debug=True)
+best_global_value, iteration = gcn.train(problem, evaluator, population_size, 0.3, 0.3, RandomGenerator('normal', 0, 3), 5, crossover_pct=0.1, debug=True)
 print(best_global_value, iteration)
 
 subproblem = problem.clone(False)

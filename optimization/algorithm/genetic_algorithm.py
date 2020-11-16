@@ -3,7 +3,7 @@ from problem.model import ProblemModel
 from solution.drawing import HypergraphDrawer
 
 class GA: # genetic Algorithm (instead of fitness value we use an objective function [lower value is better] here too)
-    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
+    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct=0.5, debug=None):
         #assert int(selection_pct * population_size) * int(1.0 / selection_pct) == population_size, 'the given percentage would yield inconsistent population size'
         #pass
         assert selection_pct <= 0.5
@@ -23,8 +23,8 @@ class GA: # genetic Algorithm (instead of fitness value we use an objective func
         raise NotImplementedError
 
 class NaiveGA(GA):
-    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
-        super().__init__(lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
+    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct=0.5, debug=None):
+        super().__init__(lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct, debug)
         self.evaluator = evaluator
         self.lower_bounds = lower_bounds
         self.upper_bounds = upper_bounds
@@ -32,6 +32,7 @@ class NaiveGA(GA):
         self.selection_pct = np.float32(selection_pct)
         self.mutation_pct = np.float32(mutation_pct)
         self.mutation_random_generator = mutation_random_generator
+        self.crossover_pct = crossover_pct
         self.max_iteration_num = max_iteration_num
 
         self.debug = debug
@@ -74,7 +75,7 @@ class NaiveGA(GA):
         return id_grid
 
     def _combine_parents(self, parent_1_id, parent_2_id, gene_id_permutation):
-        parent_2_gene_ids = gene_id_permutation[-self.dimension//2:]
+        parent_2_gene_ids = gene_id_permutation[-int(self.dimension*self.crossover_pct):]
         new_row = self.x[parent_1_id, :].copy()
         new_row[parent_2_gene_ids] = self.x[parent_2_id, parent_2_gene_ids]
         return new_row
@@ -142,10 +143,10 @@ class NaiveGA(GA):
         return self._run()
 
 class NaiveMultiRowGA(NaiveGA):
-    def __init__(self, row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
+    def __init__(self, row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct=0.5, debug=None):
         assert len(lower_bounds) >= row_size
         assert len(lower_bounds) % row_size == 0
-        super().__init__(lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
+        super().__init__(lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct, debug)
         self.row_size = row_size
 
     def _permute_gene_ids(self, parent_pair_num, parent_ids): # override
@@ -154,7 +155,7 @@ class NaiveMultiRowGA(NaiveGA):
         return id_grid
 
     def _combine_parents(self, parent_1_id, parent_2_id, gene_id_permutation): # override
-        parent_2_row_ids = gene_id_permutation[-self.row_size//2:]
+        parent_2_row_ids = gene_id_permutation[-int(self.row_size*self.crossover_pct):]
         row_num = int(self.dimension // self.row_size)
         starting_points = tuple([parent_2_row_ids + i*self.row_size for i in range(row_num)])
         parent_2_gene_ids = np.hstack(starting_points)
@@ -163,8 +164,8 @@ class NaiveMultiRowGA(NaiveGA):
         return new_row
 
 class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
-    def __init__(self, row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
-        super().__init__(row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
+    def __init__(self, row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct=0.5, debug=None, problem=None):
+        super().__init__(row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct, debug)
         self.problem = problem
 
     def _setup_optimization(self): # override
@@ -187,10 +188,10 @@ class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
         if is_updated:
             self._show_debug_info()
 
-class EdgewiseHypergraphGA(NaiveMultiRowHypergraphGA):
+class EdgewiseHypergraphGA(NaiveMultiRowHypergraphGA): # TODO crossover pct for gene selection (currently always 0.5)
     def __init__(self, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
         assert isinstance(problem, ProblemModel)
-        super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug, problem)
+        super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct, debug, problem)
 
     def _select_gene_parents(self, parent_ids):
         def ensure_equal_inheritance(parent_1_gene_mask, parent_nodewise_fitness_values_difference):

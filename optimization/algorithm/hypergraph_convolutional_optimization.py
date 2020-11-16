@@ -86,7 +86,7 @@ class HypergraphConvolutionalNetwork:
         self.reset(0)
         fill_from_vector(self.weights, vector, 0)
     
-    def train(self, problem, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
+    def train(self, problem, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct=0.5, debug=None):
         laplacians = [self.get_laplacian(hypergraph) for hypergraph in problem.hypergraphs]
         hgcn_evaluator = HGCNEvaluator(*evaluator.dump_as_args())
         hgcn_evaluator = CallableCoupling(hgcn_evaluator, problem, self, laplacians, _add_call_args_before=True)
@@ -95,7 +95,7 @@ class HypergraphConvolutionalNetwork:
         initializer = lambda dimensionality: np.random.normal(0,1,(dimensionality, example_row.size))
         lower_bounds = np.full_like(example_row, -1000) # won't happen with std normal distribution
         upper_bounds = np.full_like(example_row, 1000)
-        optimizer = NaiveGA(lower_bounds, upper_bounds, initializer, hgcn_evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
+        optimizer = NaiveGA(lower_bounds, upper_bounds, initializer, hgcn_evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct, debug)
         best_global_value, best_global_position, iteration = optimizer()
         self.load_row_vector(best_global_position)
         self.is_trained = True
