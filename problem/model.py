@@ -66,7 +66,7 @@ class NodewiseDistanceModel(ProblemModel):
     def clone(self, copy_hypergraphs=False):
         return NodewiseDistanceModel(*self.dump_as_args(copy_hypergraphs))
     
-    def clone_subproblem(self, kept_hypergraph_index_list):
+    def clone_subproblem(self, problem, kept_hypergraph_index_list):
         subproblem = problem.clone(False)
         subproblem.hypergraph = [problem.hypergraphs[idx].copy() for idx in kept_hypergraph_index_list]
         return subproblem

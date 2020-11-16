@@ -7,7 +7,6 @@ class GA: # genetic Algorithm (instead of fitness value we use an objective func
         #assert int(selection_pct * population_size) * int(1.0 / selection_pct) == population_size, 'the given percentage would yield inconsistent population size'
         #pass
         assert selection_pct <= 0.5
-        assert int(population_size - population_size*selection_pct) % 2 == 0, 'the number of not selected population has to be even'
         assert len(lower_bounds) == len(upper_bounds)
 
     def _selection(self):
@@ -50,6 +49,9 @@ class NaiveGA(GA):
 
     def _selection(self):
         num_selected = int(self.selection_pct * self.population_size)
+        worst_indices = self.fitness_values.argsort()[-num_selected:]
+        self.x[worst_indices, :] = self.initializer(len(worst_indices))
+        self._update(worst_indices)
         selected_indices = self.fitness_values.argsort()[:num_selected]
         return selected_indices
 
@@ -104,9 +106,10 @@ class NaiveGA(GA):
         np.clip(population, self.lower_bounds, self.upper_bounds, out=population)
         return population
 
-    def _update_fitness_values(self):
-        evaluation = np.apply_along_axis(self.evaluator, 1, self.x).astype(np.float32)
-        self.fitness_values = evaluation[:,0] if len(evaluation.shape) > 1 else evaluation
+    def _update_fitness_values(self, x_row_indices=None):
+        x_row_indices = np.arange(self.x.shape[0]) if x_row_indices is None else x_row_indices
+        evaluation = np.apply_along_axis(self.evaluator, 1, self.x[x_row_indices, :]).astype(np.float32)
+        self.fitness_values[x_row_indices] = evaluation[:,0] if len(evaluation.shape) > 1 else evaluation
         return evaluation
 
     def _update_bests(self):
@@ -118,7 +121,7 @@ class NaiveGA(GA):
             return True
         return False
 
-    def _update(self):
+    def _update(self, x_row_indices=None):
         self._update_fitness_values()
         is_best_updated = self._update_bests()
         if self.debug is not None and is_best_updated:
