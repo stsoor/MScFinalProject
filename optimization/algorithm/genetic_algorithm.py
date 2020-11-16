@@ -7,6 +7,7 @@ class GA: # genetic Algorithm (instead of fitness value we use an objective func
         #assert int(selection_pct * population_size) * int(1.0 / selection_pct) == population_size, 'the given percentage would yield inconsistent population size'
         #pass
         assert selection_pct <= 0.5
+        assert int(population_size - population_size*selection_pct) % 2 == 0, 'the number of not selected population has to be even'
         assert len(lower_bounds) == len(upper_bounds)
 
     def _selection(self):

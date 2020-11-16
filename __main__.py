@@ -98,14 +98,14 @@ evaluator = DistanceModelEvaluator(
                  area_proportionality_weight = 10.0,
                  intersection_measure_weight = 1000.0,
                  debug=None)
-population_size = 100
+population_size = 20
 problem = NodewiseDistanceModel(hs_20_8_100, 10, 1080, 720)
 
 sigmoid = HypergraphConvolutionalNetwork.Activation.Sigmoid
 softmax = HypergraphConvolutionalNetwork.Activation.Softmax
 gcn = HypergraphConvolutionalNetwork([20, 6, 3], [softmax, softmax])
 
-best_global_value, iteration = gcn.train(problem, evaluator, population_size, 0.3, 0.3, RandomGenerator('normal', 0, 3), 5, crossover_pct=0.1, debug=True)
+best_global_value, iteration = gcn.train(problem, evaluator, population_size, 0.3, 0.05, RandomGenerator('normal', 0, 0.3), 100, crossover_pct=0.1, debug=True)
 print(best_global_value, iteration)
 
 subproblem = problem.clone(False)
