@@ -449,3 +449,17 @@ class DistanceModelEvaluator(Evaluator):
             return np.append(global_score, _edgewise_scores)
         else:
             return global_score
+
+class HGCNEvaluator(DistanceModelEvaluator):
+    def __call__(self, x, problem, neural_network, laplacians):
+        score_sum = 0
+        batch_size = len(problem.hypergraphs)
+        for i in range(batch_size):
+            subproblem = problem.clone(False)
+            subproblem.hypergraph = problem.hypergraphs[i]
+            temp_network = neural_network.clone(False)
+            temp_network.load_row_vector(x)
+            output = temp_network.predict(subproblem, laplacians[i])
+            score = super().__call__(output.flatten(order='F'), subproblem, False)
+            score_sum += score
+        return score_sum / batch_size
