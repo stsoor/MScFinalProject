@@ -6,6 +6,7 @@ class GA: # genetic Algorithm (instead of fitness value we use an objective func
     def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None):
         #assert int(selection_pct * population_size) * int(1.0 / selection_pct) == population_size, 'the given percentage would yield inconsistent population size'
         #pass
+        assert selection_pct <= 0.5
         assert int(population_size - population_size*selection_pct) % 2 == 0, 'the number of not selected population has to be even'
         assert len(lower_bounds) == len(upper_bounds)
 
@@ -39,7 +40,7 @@ class NaiveGA(GA):
         self.dimension = len(lower_bounds)
 
     def _setup_optimization(self):
-        self.x = self.initializer() # current particle positions
+        self.x = self.initializer(self.population_size) # current particle positions
         self.fitness_values = np.zeros(self.population_size, dtype=np.float32)
         self.best_position = np.array([], dtype=self.x.dtype)
         self.best_value = np.inf
@@ -104,7 +105,7 @@ class NaiveGA(GA):
 
     def _update_fitness_values(self):
         evaluation = np.apply_along_axis(self.evaluator, 1, self.x).astype(np.float32)
-        self.fitness_values = evaluation[:,0]
+        self.fitness_values = evaluation[:,0] if len(evaluation.shape) > 1 else evaluation
         return evaluation
 
     def _update_bests(self):
@@ -118,7 +119,9 @@ class NaiveGA(GA):
 
     def _update(self):
         self._update_fitness_values()
-        self._update_bests()
+        is_best_updated = self._update_bests()
+        if self.debug is not None and is_best_updated:
+            print(self.best_value)
 
     def _run(self):
         iteration = 0
@@ -160,8 +163,8 @@ class NaiveMultiRowGA(NaiveGA):
         return new_row
 
 class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
-    def __init__(self, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
-        super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
+    def __init__(self, row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
+        super().__init__(row_size, lower_bounds, upper_bounds, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug)
         self.problem = problem
 
     def _setup_optimization(self): # override
@@ -187,7 +190,7 @@ class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
 class EdgewiseHypergraphGA(NaiveMultiRowHypergraphGA):
     def __init__(self, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
         assert isinstance(problem, ProblemModel)
-        super().__init__(initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug, problem)
+        super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug, problem)
 
     def _select_gene_parents(self, parent_ids):
         def ensure_equal_inheritance(parent_1_gene_mask, parent_nodewise_fitness_values_difference):

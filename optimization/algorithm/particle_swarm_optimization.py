@@ -60,7 +60,7 @@ class HypergraphPSO: # Particle Swarm Optimization
         
         self.velocities = np.random.uniform(0, 1, size=(self.particle_num, self.dimensions))
         self.velocities = -bounds_range + self.lower_bounds + self.velocities * 2 * bounds_range # (bounds_range - -bounds_range) - max possible values - min possible values
-        self.x = self.initializer() # current particle positions
+        self.x = self.initializer(self.particle_num) # current particle positions
         self.current_particle_values = np.zeros(self.particle_num, dtype=np.float32)
         self.best_particle_positions = np.zeros(self.x.shape, dtype=self.x.dtype)
         self.best_particle_values = np.full(self.x.shape[0], np.inf, dtype=np.float32)

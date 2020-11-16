@@ -34,6 +34,22 @@ class DistanceModelEvaluator(Evaluator):
         self.intersection_measure_weight    = intersection_measure_weight
         self.debug = debug
 
+    def clone(self):
+        return DistanceModelEvaluator(*self.dump_as_args())
+    
+    def dump_as_args(self):
+        return (
+            self.edge_count_weight,
+            self.circularity_weight,
+            self.not_missing_containment_weight,
+            self.not_miscontained_weight,
+            self.no_single_separation_weight,
+            self.min_distance_weight,
+            self.nodes_at_min_distance_weight,
+            self.area_proportionality_weight,
+            self.intersection_measure_weight,
+            self.debug)
+
     # best [0,1] worst
     def _calculate_nodes_not_missing_ratio(self): # O(m)
         # node_num = self.problem.hypergraph.shape[0]
