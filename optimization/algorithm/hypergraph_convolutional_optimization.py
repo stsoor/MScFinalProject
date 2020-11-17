@@ -159,8 +159,7 @@ class HypergraphConvolutionalNetwork:
         if self.activation_function_sequence[-1] == self.Activation.Softmax:
             pass
         elif self.activation_function_sequence[-1] == self.Activation.Sigmoid:
-            A_curr += 1
-            A_curr /= 2
+            pass
         elif self.activation_function_sequence[-1] == self.Activation.Relu:
             A_curr /= A_curr.max()
         else:
