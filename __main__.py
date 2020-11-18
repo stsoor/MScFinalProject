@@ -2,7 +2,7 @@ from problem.model import Hypergraph, RandomHypergraph, NodewiseDistanceModel
 from utilities.random import RandomGenerator
 from solution.evaluation import DistanceModelEvaluator
 from solution.drawing import HypergraphDrawer
-from solution.initializer import DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer, SpringDistanceSolutionInitializer, InitializerBlender, DistanceStatistics
+from solution.initializer import DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer, SpringDistanceSolutionInitializer, InitializerBlender, DistanceStatistic
 from optimization.algorithm.particle_swarm_optimization import HypergraphPSO
 from optimization.algorithm.genetic_algorithm import NaiveMultiRowHypergraphGA, EdgewiseHypergraphGA
 from utilities.callable_coupling import CallableCoupling
@@ -68,7 +68,7 @@ population_size = 100
 #initializer = DistanceSolutionInitializer
 initializer = EdgewiseRandomDistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
-initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistics.NONE, _add_call_args_after=True)
+initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.MEAN, _add_call_args_after=True)
 
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
