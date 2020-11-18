@@ -195,7 +195,7 @@ class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
 class EdgewiseHypergraphGA(NaiveMultiRowHypergraphGA): # TODO crossover pct for gene selection (currently always 0.5)
     def __init__(self, initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, debug=None, problem=None):
         assert isinstance(problem, ProblemModel)
-        super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, crossover_pct, debug, problem)
+        super().__init__(problem.hypergraph.shape[0], problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, selection_pct, mutation_pct, mutation_random_generator, max_iteration_num, 0.5, debug, problem)
 
     def _select_gene_parents(self, parent_ids):
         def ensure_equal_inheritance(parent_1_gene_mask, parent_nodewise_fitness_values_difference):
