@@ -38,6 +38,7 @@ h8[:4,0] = True
 h8[4:,1] = True
 np.random.seed(101)
 h9 = RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.2)
+h10 = RandomHypergraph(200, 50, RandomGenerator('uniform', 0, 1), 0.15)
 hs_20_8_100 = [RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.2) for _ in range(100)]
 
 h = h9
@@ -68,7 +69,7 @@ population_size = 100
 #initializer = DistanceSolutionInitializer
 initializer = EdgewiseRandomDistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
-initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.MEAN, _add_call_args_after=True)
+initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.NONE, _add_call_args_after=True)
 
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
@@ -76,7 +77,7 @@ initializer = CallableCoupling(initializer, problem, used_node_distance=Distance
 #alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20, problem=problem)
 #alg = NaiveMultiRowHypergraphGA(len(problem.get_vector_lower_bounds()) // 3, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
 
-alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
+alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 20, debug=1, problem=problem)
 best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
 

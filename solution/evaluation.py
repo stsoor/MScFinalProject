@@ -10,6 +10,15 @@ class Evaluator:
         pass
 
 class DistanceModelEvaluator(Evaluator):
+    class Summary:
+        def __init__(self):
+            self.falsely_contained_node_num = 0
+            self.missing_node_num = 0
+            self.false_intersection_num = 0
+            self.closer_than_min_distance_num = 0
+            self.single_separation_num = 0
+            self.segment_num = 0
+
     def __init__(self,
                  edge_count_weight = 1.0,
                  circularity_weight = 1.0,
@@ -33,6 +42,7 @@ class DistanceModelEvaluator(Evaluator):
         self.area_proportionality_weight    = area_proportionality_weight
         self.intersection_measure_weight    = intersection_measure_weight
         self.debug = debug
+        self.summary = self.Summary()
 
     def clone(self):
         return DistanceModelEvaluator(*self.dump_as_args())
@@ -105,8 +115,8 @@ class DistanceModelEvaluator(Evaluator):
                     miscontained_vertex_num += distance_to_polygon / max_possible_distance_to_polygon
             elif convex_hull.shape[0] == 2:
                 start, end = convex_hull
-                distance_to_polygon = self._calculate_two_point_hull_distance(start, end, r, vertex)
-                if distance_to_polygon >= 0:
+                distance_to_polygon, is_point_inside = self._calculate_two_point_hull_distance(start, end, r, vertex)
+                if is_point_inside:
                     miscontained_vertex_num += distance_to_polygon / max_possible_distance_to_polygon
             else:
                 if np.linalg.norm(convex_hull[0] - vertex) < r:
@@ -125,23 +135,19 @@ class DistanceModelEvaluator(Evaluator):
         c4 = (end + r*n)
         return np.vstack([c1, c2, c3, c4]).astype(np.float32)
 
-    def _calculate_two_point_hull_distance(self, start, end, r, point):
+    def _calculate_two_point_hull_distance(self, start, end, r, point): # returns distance, is_point_inside
         rectangle_corners = self._calculate_two_point_rectangle_corners(start, end, r)
         start_1, start_2, end_2, end_1 = rectangle_corners
         line_dist_1, _nearest_1 = self._get_line_segment_point_distance(start_1, end_1, point)
         line_dist_2, _nearest_2 = self._get_line_segment_point_distance(start_2, end_2, point)
-        if line_dist_1 <= r and line_dist_2 <= r:
-            return min(line_dist_1, line_dist_2)
         start_distance = np.linalg.norm(start - point)
-        if start_distance <= r:
-            return start_distance
         end_distance = np.linalg.norm(end - point)
-        if end_distance <= r:
-            return end_distance
         min_dist = min(line_dist_1, line_dist_2, start_distance, end_distance)
         if np.abs(min_dist) <= 1e-8:
-            return 0.0
-        return -1 * min_dist
+            min_dist = 0.0
+        if (line_dist_1 <= r and line_dist_2 <= 2*r) or (line_dist_1 <= 2*r and line_dist_2 <= r) or start_distance <= r or end_distance <= r:
+            return min_dist, True
+        return min_dist, False
 
     # best [0,1) worst
     def _calculate_edge_segments_num_ratio(self, edge_segments):
@@ -271,7 +277,7 @@ class DistanceModelEvaluator(Evaluator):
         def do_1_2_len_intersect(all_positions, len_1_segment_list, len_2_segment_list, r):
             point_1 = all_positions[len_1_segment_list[0]]
             start_id, end_id = len_2_segment_list
-            if self._calculate_two_point_hull_distance(all_positions[start_id], all_positions[end_id], r, point_1) <= r:
+            if self._calculate_two_point_hull_distance(all_positions[start_id], all_positions[end_id], r, point_1)[0] <= r:
                 return True
             return False
         def do_1_3_len_intersect(all_positions, len_1_segment_list, len_3_segment_list, r):
@@ -306,29 +312,28 @@ class DistanceModelEvaluator(Evaluator):
                 self._get_line_segment_point_distance(line_start_22, line_end_22, end_1)[0] <= r):
                 return True
             endpoints_11 = np.array([line_start_11, line_end_11], dtype=np.float32)
-            _ = np.array([line_start_12, line_end_12], dtype=np.float32)
+            endpoints_12 = np.array([line_start_12, line_end_12], dtype=np.float32)
             endpoints_21 = np.array([line_start_21, line_end_21], dtype=np.float32)
             endpoints_22 = np.array([line_start_22, line_end_22], dtype=np.float32)
-            # it can't happen that only one edge is intersected and it isn't closer to an endpoint than r
             if (self._do_line_segments_intersect(endpoints_11, endpoints_21) or
-                self._do_line_segments_intersect(endpoints_11, endpoints_22)):# or
-                #self._do_line_segments_intersect(endpoints_12, endpoints_21) or
-                #self._do_line_segments_intersect(endpoints_12, endpoints_22)):
+                self._do_line_segments_intersect(endpoints_11, endpoints_22) or
+                self._do_line_segments_intersect(endpoints_12, endpoints_21) or
+                self._do_line_segments_intersect(endpoints_12, endpoints_22)):
                 return True
             return False
         def do_2_3_len_intersect(all_positions, len_2_segment_list, len_3_segment_list, r):
             start_1, end_1 = all_positions[len_2_segment_list]
             hull_2_line_endpoint_ids = [[len_3_segment_list[i], len_3_segment_list[(i+1) % len(len_3_segment_list)]] for i in range(len(len_3_segment_list))]
             rectangle_corners = self._calculate_two_point_rectangle_corners(start_1, end_1, r)
-            line_start_1, _line_start_2, _line_end_2, line_end_1 = rectangle_corners
-            endpoints_1 = np.array([line_start_1, line_end_1], dtype=np.float32)
+            line_start_1, line_start_2, line_end_2, line_end_1 = rectangle_corners
+            endpoints_1a = np.array([line_start_1, line_end_1], dtype=np.float32)
+            endpoints_1b = np.array([line_start_2, line_end_2], dtype=np.float32)
             for endpoint_ids in hull_2_line_endpoint_ids:
                 endpoints_2 = all_positions[endpoint_ids]
                 if (self._get_line_segment_point_distance(endpoints_2[0], endpoints_2[1], start_1)[0] <= r or
                     self._get_line_segment_point_distance(endpoints_2[0], endpoints_2[1], end_1)[0] <= r):
                     return True
-                # it can't happen that only one edge is intersected and it isn't closer to an endpoint than r
-                if self._do_line_segments_intersect(endpoints_1, endpoints_2):
+                if self._do_line_segments_intersect(endpoints_1a, endpoints_2) or self._do_line_segments_intersect(endpoints_1b, endpoints_2):
                     return True
             return False
 
@@ -369,21 +374,25 @@ class DistanceModelEvaluator(Evaluator):
                 return do_3_3_len_intersect(all_positions, segment_1_list, segment_2_list)
 
     def _calculate_intersection_measure(self, problem, all_positions, edge_components):
+        nC2 = lambda n: n * (n - 1) / 2.0
         edge_intersections = self._get_edge_intersection_table(problem)
         all_segment_num = sum(map(len, edge_components))
-        all_possible_intersections = all_segment_num * (all_segment_num - 1) / 2.0
+        all_possible_intersections = nC2(all_segment_num)
         measure = 0.0
         for edge_1_id in range(len(edge_components) - 1):
+            all_possible_intersections -= nC2(len(edge_components[edge_1_id]))
             for edge_2_id in range(edge_1_id + 1, len(edge_components)):
                 is_intersecting = False
-                if edge_intersections[edge_1_id, edge_2_id]: # multiple intersections on different segments are allowed
-                    continue                                 # TODO should it stay that way?
+                if edge_intersections[edge_1_id, edge_2_id]:
+                    all_possible_intersections -= (len(edge_components[edge_1_id]) * len(edge_components[edge_2_id]))
+                    continue
                 for segment_1 in edge_components[edge_1_id]:
                     for segment_2 in edge_components[edge_2_id]:
                         is_intersecting = self._do_edge_components_intersect(problem, all_positions, segment_1, segment_2)
                         if is_intersecting:
-                            measure += 1.0 / all_possible_intersections
-        return measure
+                            measure += 1.0
+        all_possible_intersections -= nC2(len(edge_components[-1])) # the iteration finished before the last item
+        return measure / all_possible_intersections
 
     def _get_r(self, problem):
         r = problem.min_node_distance / 2.0
@@ -415,23 +424,23 @@ class DistanceModelEvaluator(Evaluator):
             edge_score += self.not_missing_containment_weight * nodes_not_missing_measure
             edge_score += self.no_single_separation_weight * single_node_separation_ratio
             edge_score += self.area_proportionality_weight * area_proportionality_measure
-            edge_score += self.intersection_measure_weight * closest_neighbour_measure
+            #edge_score += self.intersection_measure_weight * closest_neighbour_measure
 
             edgewise_scores[edge_id] = edge_score
 
 
         min_node_distance, min_distance_occurence_num = self._calculate_min_node_distance_and_occurences(all_positions)
         min_distance_measure = self._calculate_min_node_distance_to_target_ratio(problem, min_node_distance)
-        # if self.intersection_measure_weight is not None:
-        #     intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
-        # else:
-        #     intersection_measure = 0.0
+        if self.intersection_measure_weight is not None:
+            intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
+        else:
+            intersection_measure = 0.0
 
-        #intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
+        intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
         global_score = edgewise_scores.mean()
         #global_score = edgewise_scores.max()
         global_score += self.min_distance_weight * min_distance_measure * min_distance_occurence_num
-        #global_score += intersection_measure_weight * intersection_measure
+        global_score += intersection_measure_weight * intersection_measure
 
         return edgewise_scores, global_score
 
