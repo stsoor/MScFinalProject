@@ -77,7 +77,7 @@ initializer = CallableCoupling(initializer, problem, used_node_distance=Distance
 #alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20, problem=problem)
 #alg = NaiveMultiRowHypergraphGA(len(problem.get_vector_lower_bounds()) // 3, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
 
-alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 20, debug=1, problem=problem)
+alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 20, target_score=15, debug=1, problem=problem)
 best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
 

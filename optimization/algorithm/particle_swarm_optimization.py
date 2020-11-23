@@ -2,7 +2,7 @@ import numpy as np
 from solution.drawing import HypergraphDrawer
 
 class HypergraphPSO: # Particle Swarm Optimization
-    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, min_value_change=1e-8, debug=None, problem=None):
+    def __init__(self, lower_bounds, upper_bounds, initializer, evaluator, particle_num, w, c_1, c_2, max_iteration_num, target_score=None, min_value_change=1e-8, debug=None, problem=None):
         # velocity_(T+1) = w*velocity_(T) + c_1*random_1*(best_particle_pos-current_pos) + c_2*random_2*(best_global_pos-current_pos)
         self.evaluator = evaluator
         self.problem = problem
@@ -13,6 +13,7 @@ class HypergraphPSO: # Particle Swarm Optimization
         self.c_1 = np.float32(c_1)
         self.c_2 = np.float32(c_2)
         self.max_iteration_num = max_iteration_num
+        self.target_score = target_score if target_score is not None else -np.inf
         self.min_value_change = min_value_change
 
         self.debug = debug
@@ -73,7 +74,7 @@ class HypergraphPSO: # Particle Swarm Optimization
 
     def _run(self):
         iteration = 0
-        while iteration < self.max_iteration_num:
+        while iteration < self.max_iteration_num and self.target_score < self.best_global_value:
             iteration += 1
             self._update_velocities(self.w, self.c_1, self.c_2)
             
