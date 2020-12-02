@@ -138,6 +138,8 @@ class NaiveGA(GA):
             self.x = self._mutation(new_population, selected_indices)
             self._update()
 
+            if iteration % 50 == 0:
+                print(self.best_value, self.best_position)
             if self.debug is not None:
                 print(iteration)
 
