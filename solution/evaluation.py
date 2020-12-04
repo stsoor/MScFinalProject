@@ -277,10 +277,14 @@ class DistanceModelEvaluator(Evaluator):
         def do_1_2_len_intersect(all_positions, len_1_segment_list, len_2_segment_list, r):
             point_1 = all_positions[len_1_segment_list[0]]
             start_id, end_id = len_2_segment_list
-            if self._calculate_two_point_hull_distance(all_positions[start_id], all_positions[end_id], r, point_1)[0] <= r:
+            start = all_positions[start_id]
+            end = all_positions[end_id]
+            if np.linalg.norm(start - end) < 1e-8:
+                return do_1_1_len_intersect(all_positions, len_1_segment_list, len_2_segment_list, r)
+            if self._calculate_two_point_hull_distance(start, end, r, point_1)[0] <= r:
                 return True
             return False
-        def do_1_3_len_intersect(all_positions, len_1_segment_list, len_3_segment_list, r):
+        def do_1_3_len_intersect(all_positions, len_1_segment_list, len_3_segment_list, r): # !!! in this case we don't check if two (or more) vertices are in the same position or not
             point_1 = all_positions[len_1_segment_list[0]]
             hull_2_line_endpoint_ids = [[len_3_segment_list[i], len_3_segment_list[(i+1) % len(len_3_segment_list)]] for i in range(len(len_3_segment_list))]
             for start_id, end_id in hull_2_line_endpoint_ids:
@@ -292,6 +296,10 @@ class DistanceModelEvaluator(Evaluator):
         def do_2_2_len_intersect(all_positions, segment_1_list, segment_2_list, r):
             start_1, end_1 = all_positions[segment_1_list]
             start_2, end_2 = all_positions[segment_2_list]
+            if np.linalg.norm(start_1 - end_1) < 1e-8:
+                return do_1_2_len_intersect(all_positions, segment_1_list, segment_2_list, r) # recursively checks if segment_2 is in fact 1 long or not
+            elif np.linalg.norm(start_2 - end_2) < 1e-8:
+                return do_1_2_len_intersect(all_positions, segment_2_list, segment_1_list, r)
             if (np.linalg.norm(start_1 - start_2) <= r or
                 np.linalg.norm(start_1 - end_2) <= r or
                 np.linalg.norm(end_1 - start_2) <= r or
@@ -321,8 +329,10 @@ class DistanceModelEvaluator(Evaluator):
                 self._do_line_segments_intersect(endpoints_12, endpoints_22)):
                 return True
             return False
-        def do_2_3_len_intersect(all_positions, len_2_segment_list, len_3_segment_list, r):
+        def do_2_3_len_intersect(all_positions, len_2_segment_list, len_3_segment_list, r): # !!! in this case we don't check the second list has points in the same position
             start_1, end_1 = all_positions[len_2_segment_list]
+            if np.linalg.norm(start_1 - end_1) < 1e-8:
+                return do_1_3_len_intersect(all_positions, len_2_segment_list, len_3_segment_list, r)
             hull_2_line_endpoint_ids = [[len_3_segment_list[i], len_3_segment_list[(i+1) % len(len_3_segment_list)]] for i in range(len(len_3_segment_list))]
             rectangle_corners = self._calculate_two_point_rectangle_corners(start_1, end_1, r)
             line_start_1, line_start_2, line_end_2, line_end_1 = rectangle_corners
@@ -337,7 +347,7 @@ class DistanceModelEvaluator(Evaluator):
                     return True
             return False
 
-        def do_3_3_len_intersect(all_positions, segment_1_list, segment_2_list):
+        def do_3_3_len_intersect(all_positions, segment_1_list, segment_2_list): # !!! in this case we don't check if two (or more) vertices are in the same position or not
             hull_1_line_endpoint_ids = [[segment_1_list[i], segment_1_list[(i+1) % len(segment_1_list)]] for i in range(len(segment_1_list))]
             hull_2_line_endpoint_ids = [[segment_2_list[i], segment_2_list[(i+1) % len(segment_2_list)]] for i in range(len(segment_2_list))]
             for endpoint_ids_1 in hull_1_line_endpoint_ids:
@@ -379,6 +389,14 @@ class DistanceModelEvaluator(Evaluator):
         all_segment_num = sum(map(len, edge_components))
         all_possible_intersections = nC2(all_segment_num)
         measure = 0.0
+
+        #distances = distance_matrix(all_positions, all_positions)
+        #distances += np.diag(np.full(len(all_positions), np.inf))
+        #has_same_position = np.any(distances <= 1e-8)
+#
+        #if has_same_position:
+        #    return 1
+
         for edge_1_id in range(len(edge_components) - 1):
             all_possible_intersections -= nC2(len(edge_components[edge_1_id]))
             for edge_2_id in range(edge_1_id + 1, len(edge_components)):
@@ -445,11 +463,14 @@ class DistanceModelEvaluator(Evaluator):
         return edgewise_scores, global_score
 
     def __call__(self, x, problem, return_edgwise_scores=False): # order is needed for apply_along_axis
+        x_local = x.copy()
+        x_local = np.round(x_local, 6)
+
         if self.debug is not None:
-            drawer = HypergraphDrawer(problem, x)
+            drawer = HypergraphDrawer(problem, x_local)
             drawer.show(wait_key=self.debug)
 
-        _edgewise_scores, global_score = self.get_edgewise_and_global_scores(problem, x)
+        _edgewise_scores, global_score = self.get_edgewise_and_global_scores(problem, x_local)
 
         if self.debug is not None:
             print(global_score)

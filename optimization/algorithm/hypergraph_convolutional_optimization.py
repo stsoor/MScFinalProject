@@ -92,6 +92,7 @@ class HypergraphConvolutionalNetwork:
         hgcn_evaluator = CallableCoupling(hgcn_evaluator, problem, self, laplacians, _add_call_args_before=True)
         self.reset(0)
         example_row = self.dump_row_vector()
+        #initializer = lambda dimensionality: np.random.uniform(0,1,(dimensionality, example_row.size))
         initializer = lambda dimensionality: np.random.normal(0,1,(dimensionality, example_row.size))
         lower_bounds = np.full_like(example_row, -1000) # won't happen with std normal distribution
         upper_bounds = np.full_like(example_row, 1000)
@@ -134,6 +135,7 @@ class HypergraphConvolutionalNetwork:
         nonzero_division_vertex_degrees = vertex_degrees.copy().reshape((-1,1))
         nonzero_division_vertex_degrees[nonzero_division_vertex_degrees == 0] = 1
         A_x = G_x / nonzero_division_vertex_degrees
+        #D_inv_root = 1 / np.clip(2*nonzero_division_vertex_degrees -3,1,np.inf) - seems to be working better (don't see the reason though)
         D_inv_root = 1 / nonzero_division_vertex_degrees
         D_inv_root[vertex_degrees.reshape((-1,1)) == 0] = 0
         D_inv_root = np.diag(D_inv_root.flatten())
