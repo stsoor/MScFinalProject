@@ -27,7 +27,6 @@ class DistanceModelEvaluator(Evaluator):
                  no_single_separation_weight = 1.0,
                 #  spatial_dispersion_weight,
                  min_distance_weight = 1.0,
-                 nodes_at_min_distance_weight = 1.0,
                  area_proportionality_weight = 1.0,
                  intersection_measure_weight = 1.0,
                  debug=None):
@@ -38,7 +37,6 @@ class DistanceModelEvaluator(Evaluator):
         self.no_single_separation_weight    = no_single_separation_weight
         # self.spatial_dispersion_weight      = spatial_dispersion_weight
         self.min_distance_weight            = min_distance_weight
-        self.nodes_at_min_distance_weight   = nodes_at_min_distance_weight
         self.area_proportionality_weight    = area_proportionality_weight
         self.intersection_measure_weight    = intersection_measure_weight
         self.debug = debug
@@ -55,7 +53,6 @@ class DistanceModelEvaluator(Evaluator):
             self.not_miscontained_weight,
             self.no_single_separation_weight,
             self.min_distance_weight,
-            self.nodes_at_min_distance_weight,
             self.area_proportionality_weight,
             self.intersection_measure_weight,
             self.debug)
@@ -103,6 +100,10 @@ class DistanceModelEvaluator(Evaluator):
         miscontained_vertex_num = 0
         #segment_vertex_num = 0
         max_possible_distance_to_polygon = np.linalg.norm(problem.size[0] * problem.size[1])
+        not_contained_vertex_num = (len(all_positions) - len(segment_vertex_ids))
+        denominator = max_possible_distance_to_polygon / not_contained_vertex_num
+
+        # TODO 1 / not_contained_vertex_num, return 1
         for vertex_id in range(all_positions.shape[0]):
             if vertex_id in segment_vertex_ids:
                 #segment_vertex_num += 1
@@ -112,15 +113,15 @@ class DistanceModelEvaluator(Evaluator):
             if convex_hull.shape[0] > 2:
                 distance_to_polygon = cv2.pointPolygonTest(convex_hull.astype(np.float32), tuple(vertex), True)
                 if distance_to_polygon >= 0:
-                    miscontained_vertex_num += distance_to_polygon / max_possible_distance_to_polygon
+                    miscontained_vertex_num += distance_to_polygon / denominator
             elif convex_hull.shape[0] == 2:
                 start, end = convex_hull
                 distance_to_polygon, is_point_inside = self._calculate_two_point_hull_distance(start, end, r, vertex)
                 if is_point_inside:
-                    miscontained_vertex_num += distance_to_polygon / max_possible_distance_to_polygon
+                    miscontained_vertex_num += distance_to_polygon / denominator
             else:
                 if np.linalg.norm(convex_hull[0] - vertex) < r:
-                    miscontained_vertex_num += np.linalg.norm(r - convex_hull[0]) / max_possible_distance_to_polygon
+                    miscontained_vertex_num += np.linalg.norm(r - convex_hull[0]) / denominator
         
         return miscontained_vertex_num / all_positions.shape[0]
 

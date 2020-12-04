@@ -58,7 +58,6 @@ evaluator = DistanceModelEvaluator(
                  not_miscontained_weight = 10000.0,
                  no_single_separation_weight = 1000.0,
                  min_distance_weight = 100.0,
-                 nodes_at_min_distance_weight = 10.0,
                  area_proportionality_weight = 10.0,
                  intersection_measure_weight = 1000.0,
                  debug=None)
@@ -69,7 +68,11 @@ population_size = 100
 initializer = DistanceSolutionInitializer
 #initializer = EdgewiseRandomDistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
-initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.NONE, _add_call_args_after=True)
+#initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.NONE, _add_call_args_after=True)
+#initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.MEAN, _add_call_args_after=True)
+
+
+initializer = CallableCoupling(InitializerBlender([DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3]), problem, used_node_distance=DistanceStatistic.MEAN, _add_call_args_after=True)
 
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
@@ -77,44 +80,43 @@ initializer = CallableCoupling(initializer, problem, used_node_distance=Distance
 #alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20, problem=problem)
 #alg = NaiveMultiRowHypergraphGA(len(problem.get_vector_lower_bounds()) // 3, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
 
-##alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=15, debug=1, problem=problem)
-##best_global_value, best_global_position, iteration = alg()
-##print(best_global_value, iteration)
-##
-##drawer = HypergraphDrawer(problem, best_global_position)
-##drawer.show()
-##
-##exit(0)
+alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, debug=1, problem=problem)
+best_global_value, best_global_position, iteration = alg()
+print(best_global_value, iteration)
+
+drawer = HypergraphDrawer(problem, best_global_position)
+drawer.show()
+
+exit(0)
 # spike
 
-from optimization.algorithm.hypergraph_convolutional_optimization import HypergraphConvolutionalNetwork
+# from optimization.algorithm.hypergraph_convolutional_optimization import HypergraphConvolutionalNetwork
 
-evaluator = DistanceModelEvaluator(
-                 edge_count_weight = 1000.0,
-                 circularity_weight = 10.0,
-                 not_missing_containment_weight = 10000.0,
-                 not_miscontained_weight = 10000.0,
-                 no_single_separation_weight = 1000.0,
-                 min_distance_weight = 100.0,
-                 nodes_at_min_distance_weight = 10.0,
-                 area_proportionality_weight = 10.0,
-                 intersection_measure_weight = 1000.0,
-                 debug=None)
-population_size = 100
-problem = NodewiseDistanceModel(hs_20_8_100, 10, 1080, 720)
-relu = HypergraphConvolutionalNetwork.Activation.Relu
-sigmoid = HypergraphConvolutionalNetwork.Activation.Sigmoid
-softmax = HypergraphConvolutionalNetwork.Activation.Softmax
-#gcn = HypergraphConvolutionalNetwork([20, 4, 3], [sigmoid, sigmoid])
-gcn = HypergraphConvolutionalNetwork([20, 4, 3], [relu, softmax])
-best_global_value, iteration = gcn.train(problem, evaluator, population_size, 0.3, 0.05, RandomGenerator('normal', 0, 3), 20, target_score=1, crossover_pct=0.1, debug=True)
-print(best_global_value, iteration)
-subproblem = problem.clone(False)
-#subproblem.hypergraph = problem.hypergraphs[0]
-subproblem.hypergraph = h9
-best_global_position = gcn.predict(subproblem).flatten(order='F')
-print('score:', evaluator(best_global_position, subproblem))
-print('vector:', gcn.dump_row_vector())
-drawer = HypergraphDrawer(subproblem, best_global_position)
-drawer.show()
-# alma = 4
+# evaluator = DistanceModelEvaluator(
+#                  edge_count_weight = 1000.0,
+#                  circularity_weight = 10.0,
+#                  not_missing_containment_weight = 10000.0,
+#                  not_miscontained_weight = 10000.0,
+#                  no_single_separation_weight = 1000.0,
+#                  min_distance_weight = 100.0,
+#                  area_proportionality_weight = 10.0,
+#                  intersection_measure_weight = 1000.0,
+#                  debug=None)
+# population_size = 100
+# problem = NodewiseDistanceModel(hs_20_8_100, 10, 1080, 720)
+# relu = HypergraphConvolutionalNetwork.Activation.Relu
+# sigmoid = HypergraphConvolutionalNetwork.Activation.Sigmoid
+# softmax = HypergraphConvolutionalNetwork.Activation.Softmax
+# #gcn = HypergraphConvolutionalNetwork([20, 4, 3], [sigmoid, sigmoid])
+# gcn = HypergraphConvolutionalNetwork([20, 4, 3], [relu, softmax])
+# best_global_value, iteration = gcn.train(problem, evaluator, population_size, 0.3, 0.05, RandomGenerator('normal', 0, 3), 20, target_score=1, crossover_pct=0.1, debug=True)
+# print(best_global_value, iteration)
+# subproblem = problem.clone(False)
+# #subproblem.hypergraph = problem.hypergraphs[0]
+# subproblem.hypergraph = h9
+# best_global_position = gcn.predict(subproblem).flatten(order='F')
+# print('score:', evaluator(best_global_position, subproblem))
+# print('vector:', gcn.dump_row_vector())
+# drawer = HypergraphDrawer(subproblem, best_global_position)
+# drawer.show()
+# # alma = 4

@@ -132,11 +132,11 @@ class InitializerBlender:
         assert len(initializers) == len(weights), 'not the same number of elements in initializers and weights'
         assert np.abs(self.weights.sum() - 1) <= 1e-8, 'sum of weights is not 1'
     
-    def __call__(self, problem, dimensionality):
+    def __call__(self, problem, dimensionality, used_node_distance=DistanceStatistic.NONE):
         selected_x_parts = []
         selected_row_num_sum = 0
         for i in range(len(self.initializers)):
-            x = self.initializers[i](problem, dimensionality)
+            x = self.initializers[i](problem, dimensionality, used_node_distance)
             row_num = x.shape[0]
             selected_row_num = int(row_num * self.weights[i]) if i != len(self.initializers) - 1 else row_num - selected_row_num_sum
             row_indices = np.arange(row_num)
