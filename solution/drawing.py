@@ -53,6 +53,10 @@ class HypergraphDrawer:
             draw_two_point_rectangle(edge_img, start, end, r, color)
         else:
             cv2.fillPoly(edge_img, [segment_hull.astype(np.int32)], color)
+            #boundingRect = segment_hull[:,0].min(), segment_hull[:,1].min(), segment_hull[:,0].max(), segment_hull[:,1].max()
+            #color = (0, 0, 0) 
+            #thickness = 1 
+            #edge_img = cv2.rectangle(edge_img, (boundingRect[0], boundingRect[1]), (boundingRect[2], boundingRect[3]), color, thickness) 
 
     def _draw_points(self, img, all_positions, color=(0,0,0), r=3):
         for point in all_positions:

@@ -39,6 +39,7 @@ h8[4:,1] = True
 np.random.seed(101)
 h9 = RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.2)
 h10 = RandomHypergraph(200, 50, RandomGenerator('uniform', 0, 1), 0.05)
+h11 = RandomHypergraph(100, 25, RandomGenerator('uniform', 0, 1), 0.05)
 hs_20_8_100 = [RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.2) for _ in range(100)]
 
 h = h9
@@ -56,8 +57,9 @@ evaluator = DistanceModelEvaluator(
                  circularity_weight = 10.0,
                  not_missing_containment_weight = 10000.0,
                  not_miscontained_weight = 10000.0,
-                 no_single_separation_weight = 1000.0,
+                 edge_segment_size_weight = 1000.0,
                  min_distance_weight = 100.0,
+                 min_distance_occurence_weight = 10.0,
                  area_proportionality_weight = 10.0,
                  intersection_measure_weight = 1000.0,
                  debug=None)
@@ -97,8 +99,9 @@ exit(0)
 #                  circularity_weight = 10.0,
 #                  not_missing_containment_weight = 10000.0,
 #                  not_miscontained_weight = 10000.0,
-#                  no_single_separation_weight = 1000.0,
+#                  edge_segment_size_weight = 1000.0,
 #                  min_distance_weight = 100.0,
+#                  min_distance_occurence_weight = 10.0,
 #                  area_proportionality_weight = 10.0,
 #                  intersection_measure_weight = 1000.0,
 #                  debug=None)

@@ -24,21 +24,25 @@ class DistanceModelEvaluator(Evaluator):
                  circularity_weight = 1.0,
                  not_missing_containment_weight = 1.0,
                  not_miscontained_weight = 1.0,
-                 no_single_separation_weight = 1.0,
+                 edge_segment_size_weight = 1.0,
                 #  spatial_dispersion_weight,
                  min_distance_weight = 1.0,
+                 min_distance_occurence_weight = 1.0,
                  area_proportionality_weight = 1.0,
                  intersection_measure_weight = 1.0,
+                 properties_only=False,
                  debug=None):
         self.edge_count_weight              = edge_count_weight
         self.circularity_weight             = circularity_weight
         self.not_missing_containment_weight = not_missing_containment_weight
         self.not_miscontained_weight        = not_miscontained_weight
-        self.no_single_separation_weight    = no_single_separation_weight
-        # self.spatial_dispersion_weight      = spatial_dispersion_weight
+        self.edge_segment_size_weight       = edge_segment_size_weight
+        # self.spatial_dispersion_weight    = spatial_dispersion_weight
         self.min_distance_weight            = min_distance_weight
+        self.min_distance_occurence_weight  = min_distance_occurence_weight
         self.area_proportionality_weight    = area_proportionality_weight
         self.intersection_measure_weight    = intersection_measure_weight
+        self.properties_only = properties_only
         self.debug = debug
         self.summary = self.Summary()
 
@@ -51,10 +55,12 @@ class DistanceModelEvaluator(Evaluator):
             self.circularity_weight,
             self.not_missing_containment_weight,
             self.not_miscontained_weight,
-            self.no_single_separation_weight,
+            self.edge_segment_size_weight,
             self.min_distance_weight,
+            self.min_distance_occurence_weight,
             self.area_proportionality_weight,
             self.intersection_measure_weight,
+            self.properties_only,
             self.debug)
 
     # best [0,1] worst
@@ -94,16 +100,28 @@ class DistanceModelEvaluator(Evaluator):
             start, end = convex_hull
             rectangle_length = np.linalg.norm(start-end)
             return 1.0 - (4 * np.pi * area) / (2.0 * r * np.pi  + 2.0 * rectangle_length)**2
-    
+
+    def _get_bounding_rect(self, problem, convex_hull, r):
+        get_r_rectangle = lambda vertex_position: (max(vertex_position[0] - r, 0), max(vertex_position[1] - r, 0), min(vertex_position[0] + r, problem.size[0]), min(vertex_position[1] + r, problem.size[1]))
+        if len(convex_hull) == 1:
+            return get_r_rectangle(convex_hull[0])
+        elif len(convex_hull) == 2:
+            start_box = get_r_rectangle(convex_hull[0])
+            end_box = get_r_rectangle(convex_hull[1])
+            return min(start_box[0], end_box[0]), min(start_box[1], end_box[1]), max(start_box[2], end_box[2]), max(start_box[3], end_box[3])
+        else:
+            return convex_hull[:,0].min(), convex_hull[:,1].min(), convex_hull[:,0].max(), convex_hull[:,1].max()
+
     # best [0, 1) worst
-    def _calculate_miscontained_nodes_measure(self, problem, segment_vertex_ids, convex_hull, all_positions, r): # O(S*((n-d)*d + d*log(d))) <= O(n^3)    
+    def _calculate_miscontained_nodes_measure(self, problem, segment_vertex_ids, convex_hull, all_positions, r): #O(S*((n-d)*log(d))) <= O(m*n*log(n))
         miscontained_vertex_num = 0
         #segment_vertex_num = 0
-        max_possible_distance_to_polygon = np.linalg.norm(problem.size[0] * problem.size[1])
+        #max_possible_distance_to_polygon = min(problem.size[0] / 2,  problem.size[1] / 2)
+        bounding_rect = self._get_bounding_rect(problem, convex_hull, r)
+        max_possible_distance_to_polygon = min(bounding_rect[2] - bounding_rect[0], bounding_rect[3] - bounding_rect[1]) / 2
         not_contained_vertex_num = (len(all_positions) - len(segment_vertex_ids))
-        denominator = max_possible_distance_to_polygon / not_contained_vertex_num
+        denominator = max_possible_distance_to_polygon * not_contained_vertex_num
 
-        # TODO 1 / not_contained_vertex_num, return 1
         for vertex_id in range(all_positions.shape[0]):
             if vertex_id in segment_vertex_ids:
                 #segment_vertex_num += 1
@@ -113,17 +131,27 @@ class DistanceModelEvaluator(Evaluator):
             if convex_hull.shape[0] > 2:
                 distance_to_polygon = cv2.pointPolygonTest(convex_hull.astype(np.float32), tuple(vertex), True)
                 if distance_to_polygon >= 0:
-                    miscontained_vertex_num += distance_to_polygon / denominator
+                    if self.properties_only:
+                        return 1
+                    else:
+                        miscontained_vertex_num += distance_to_polygon / denominator
             elif convex_hull.shape[0] == 2:
                 start, end = convex_hull
                 distance_to_polygon, is_point_inside = self._calculate_two_point_hull_distance(start, end, r, vertex)
                 if is_point_inside:
-                    miscontained_vertex_num += distance_to_polygon / denominator
+                    if self.properties_only:
+                        return 1
+                    else:
+                        miscontained_vertex_num += distance_to_polygon / denominator
             else:
-                if np.linalg.norm(convex_hull[0] - vertex) < r:
-                    miscontained_vertex_num += np.linalg.norm(r - convex_hull[0]) / denominator
+                distance_to_polygon = np.linalg.norm(convex_hull[0] - vertex)
+                if distance_to_polygon < r:
+                    if self.properties_only:
+                        return 1
+                    else:
+                        miscontained_vertex_num += distance_to_polygon / denominator
         
-        return miscontained_vertex_num / all_positions.shape[0]
+        return miscontained_vertex_num
 
     def _calculate_two_point_rectangle_corners(self, start, end, r):
         #v = np.array([end[0]-start[0], end[1]-start[1]], dtype=np.float32)
@@ -155,13 +183,17 @@ class DistanceModelEvaluator(Evaluator):
         #return len(edge_components) / sum(map(len, edge_components))
         return 1.0 - 1.0 / len(edge_segments)
 
-    # best [0, 1] worst
-    def _calculate_single_node_separations_ratio(self, edge_segments): # O(S) <= O(n)
-        one_long_segment_num = sum([1 for segment in edge_segments if len(edge_segments) == 1])
-        if len(edge_segments) > 1:
-            return one_long_segment_num / len(edge_segments)
-        else:
-            return 0.0
+    # # best [0, 1] worst
+    # def _calculate_single_node_separations_ratio(self, edge_segments): # O(S) <= O(n)
+    #     one_long_segment_num = sum([1 for segment in edge_segments if len(edge_segments) == 1])
+    #     if len(edge_segments) > 1:
+    #         return one_long_segment_num / len(edge_segments)
+    #     else:
+    #         return 0.0
+    
+    def _calculate_segment_size_measure(self, problem, edge_segments, edge_id): # O(S) <= O(n)
+        edge_vertex_num = problem.hypergraph[:, edge_id].sum()
+        return sum([abs(len(segment) / edge_vertex_num - 1 / len(edge_segments)) / len(edge_segments) for segment in edge_segments])
 
     # def _measure_spatial_dispersion(self): # O(n)
     #     # test if it is from a uniform distribution
@@ -169,22 +201,31 @@ class DistanceModelEvaluator(Evaluator):
 
     # best [0,1] worst
     def _calculate_area_proportionality(self, problem, edge_id, edge_hulls, r): # O(S) <= O(n)
-        edge_area = sum([self._get_area(convex_hull, r) for convex_hull in edge_hulls])
+        #edge_area = sum([self._get_area(convex_hull, r) for convex_hull in edge_hulls])
+        #canvas_size = problem.size[0] * problem.size[1]
+        #all_vertex_num = problem.hypergraph.shape[0]
+        #edge_vertex_num = problem.hypergraph[:, edge_id].sum()
+        #return abs(edge_area / canvas_size - edge_vertex_num / all_vertex_num) # abs([0,1] - [0,1])
+        
+        segment_areas = [self._get_area(convex_hull, r) for convex_hull in edge_hulls]
         canvas_size = problem.size[0] * problem.size[1]
         all_vertex_num = problem.hypergraph.shape[0]
-        edge_vertex_num = problem.hypergraph[:, edge_id].sum()
-        return abs(edge_area / canvas_size - edge_vertex_num / all_vertex_num) # abs([0,1] - [0,1])
+        measure = [abs(segment_areas[i] / canvas_size - len(edge_hulls[i]) / all_vertex_num) / len(edge_hulls) for i in range(len(segment_areas))]
+        return sum(measure)
 
     # [0,sqrt(width^2+height^2)], [0, n]
-    def _calculate_min_node_distance_and_occurences(self, positions): # O(n^2), this measure is global
+    def _calculate_min_node_distance_and_below_target_occurences(self, problem, positions): # O(n^2), this measure is global
         distances = pdist(positions)
         min_distance = distances.min()
-        epsilon = 1e-8
-        num_mins = (distances <= min_distance + epsilon).sum()
-        return min_distance, num_mins
+        #epsilon = 1e-8
+        #num_mins = (distances <= min_distance + epsilon).sum() / 2
+        num_below_min = (distances < problem.min_node_distance).sum() / 2
+        return min_distance, num_below_min
 
     # best [0,1] worst
     def _calculate_min_node_distance_to_target_ratio(self, problem, min_distance_realisation): # O(n^2), this measure is global
+        if min_distance_realisation < 1e-8:
+            return 1
         return 1.0 - min(min_distance_realisation / problem.min_node_distance, 1.0)
 
     # https://stackoverflow.com/questions/27161533/find-the-shortest-distance-between-a-point-and-line-segments-not-line
@@ -434,21 +475,23 @@ class DistanceModelEvaluator(Evaluator):
             miscounted_nodes_measure = sum([self._calculate_miscontained_nodes_measure(problem, segment_vertex_ids, segment_hull, all_positions, r) / len(segment_hulls) for segment_hull in segment_hulls])
             edge_segment_num_measure = self._calculate_edge_segments_num_ratio(all_edge_components[edge_id])
             area_proportionality_measure = self._calculate_area_proportionality(problem, edge_id, segment_hulls, r)
-            single_node_separation_ratio = self._calculate_single_node_separations_ratio(all_edge_components[edge_id])
+            #single_node_separation_ratio = self._calculate_single_node_separations_ratio(all_edge_components[edge_id])
+            edge_segment_size_measure = self._calculate_segment_size_measure(problem, all_edge_components[edge_id], edge_id)
             closest_neighbour_measure = self._is_closest_neighbour_edge_neighbour_edge_measure(problem, edge_id, all_positions, is_closest_from_common_edge)
 
             edge_score  = self.edge_count_weight  * edge_segment_num_measure
             edge_score += self.circularity_weight * circularity_measure
             edge_score += self.not_miscontained_weight * miscounted_nodes_measure
             edge_score += self.not_missing_containment_weight * nodes_not_missing_measure
-            edge_score += self.no_single_separation_weight * single_node_separation_ratio
+            #edge_score += self.no_single_separation_weight * single_node_separation_ratio
+            edge_score += self.edge_segment_size_weight * edge_segment_size_measure
             edge_score += self.area_proportionality_weight * area_proportionality_measure
             #edge_score += self.intersection_measure_weight * closest_neighbour_measure
 
             edgewise_scores[edge_id] = edge_score
 
 
-        min_node_distance, min_distance_occurence_num = self._calculate_min_node_distance_and_occurences(all_positions)
+        min_node_distance, below_min_distance_num = self._calculate_min_node_distance_and_below_target_occurences(problem, all_positions)
         min_distance_measure = self._calculate_min_node_distance_to_target_ratio(problem, min_node_distance)
         if self.intersection_measure_weight is not None:
             intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
@@ -458,7 +501,8 @@ class DistanceModelEvaluator(Evaluator):
         intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
         global_score = edgewise_scores.mean()
         #global_score = edgewise_scores.max()
-        global_score += self.min_distance_weight * min_distance_measure * min_distance_occurence_num
+        global_score += self.min_distance_weight * min_distance_measure
+        global_score += self.min_distance_occurence_weight * below_min_distance_num / (len(all_positions) * (len(all_positions) - 1) / 2)
         global_score += intersection_measure_weight * intersection_measure
 
         return edgewise_scores, global_score
