@@ -14,10 +14,20 @@ class DistanceModelEvaluator(Evaluator):
         def __init__(self):
             self.falsely_contained_node_num = 0
             self.missing_node_num = 0
-            self.false_intersection_num = 0
+            self.intersection_num = 0
+            self.invalid_intersection_num = 0
             self.closer_than_min_distance_num = 0
-            self.single_separation_num = 0
             self.segment_num = 0
+        
+        def __str__(self):
+            return f'''
+falsely_contained_node_num:   {self.falsely_contained_node_num}
+missing_node_num:             {self.missing_node_num}
+intersection_num:             {self.intersection_num}
+invalid_intersection_num:     {self.invalid_intersection_num}
+closer_than_min_distance_num: {self.closer_than_min_distance_num}
+segment_num:                  {self.segment_num}
+'''
 
     def __init__(self,
                  edge_count_weight = 1.0,
@@ -25,7 +35,6 @@ class DistanceModelEvaluator(Evaluator):
                  not_missing_containment_weight = 1.0,
                  not_miscontained_weight = 1.0,
                  edge_segment_size_weight = 1.0,
-                #  spatial_dispersion_weight,
                  min_distance_weight = 1.0,
                  min_distance_occurence_weight = 1.0,
                  area_proportionality_weight = 1.0,
@@ -118,6 +127,7 @@ class DistanceModelEvaluator(Evaluator):
     # best [0, 1) worst
     def _calculate_miscontained_nodes_measure(self, problem, segment_vertex_ids, convex_hull, all_positions, r): #O(S*((n-d)*log(d))) <= O(m*n*log(n))
         miscontained_vertex_num = 0
+        miscontained_vertex_measure = 0
         #segment_vertex_num = 0
         #max_possible_distance_to_polygon = min(problem.size[0] / 2,  problem.size[1] / 2)
         bounding_rect = self._get_bounding_rect(problem, convex_hull, r)
@@ -134,27 +144,23 @@ class DistanceModelEvaluator(Evaluator):
             if convex_hull.shape[0] > 2:
                 distance_to_polygon = cv2.pointPolygonTest(convex_hull.astype(np.float32), tuple(vertex), True)
                 if distance_to_polygon >= 0:
-                    if self.properties_only:
-                        return 1
-                    else:
-                        miscontained_vertex_num += distance_to_polygon / denominator
+                    miscontained_vertex_num += 1
+                    miscontained_vertex_measure += distance_to_polygon / denominator
             elif convex_hull.shape[0] == 2:
                 start, end = convex_hull
                 distance_to_polygon, is_point_inside = self._calculate_two_point_hull_distance(start, end, r, vertex)
                 if is_point_inside:
-                    if self.properties_only:
-                        return 1
-                    else:
-                        miscontained_vertex_num += distance_to_polygon / denominator
+                    miscontained_vertex_num += 1
+                    miscontained_vertex_measure += distance_to_polygon / denominator
             else:
                 distance_to_polygon = np.linalg.norm(convex_hull[0] - vertex)
                 if distance_to_polygon < r:
-                    if self.properties_only:
-                        return 1
-                    else:
-                        miscontained_vertex_num += distance_to_polygon / denominator
+                    miscontained_vertex_num += 1
+                    miscontained_vertex_measure += distance_to_polygon / denominator
         
-        return miscontained_vertex_num
+        self.summary.falsely_contained_node_num += miscontained_vertex_num
+        
+        return miscontained_vertex_num if self.properties_only else miscontained_vertex_measure
 
     def _calculate_two_point_rectangle_corners(self, start, end, r):
         #v = np.array([end[0]-start[0], end[1]-start[1]], dtype=np.float32)
@@ -221,8 +227,8 @@ class DistanceModelEvaluator(Evaluator):
         distances = pdist(positions)
         min_distance = distances.min()
         #epsilon = 1e-8
-        #num_mins = (distances <= min_distance + epsilon).sum() / 2
-        num_below_min = (distances < problem.min_node_distance).sum() / 2
+        #num_mins = (distances <= min_distance + epsilon).sum()
+        num_below_min = (distances < problem.min_node_distance).sum() # pdist only gives only one value for d(u,v), d(v,u)
         return min_distance, num_below_min
 
     # best [0,1] worst
@@ -459,6 +465,10 @@ class DistanceModelEvaluator(Evaluator):
                             if not is_neighbour:
                                 non_neighbour_intersection_measure += 1.0
         all_possible_intersections -= nC2(len(edge_components[-1])) # the iteration finished before the last item
+
+        self.summary.intersection_num += intersection_measure
+        self.summary.invalid_intersection_num += non_neighbour_intersection_measure
+
         return intersection_measure / all_possible_intersections, non_neighbour_intersection_measure / all_possible_non_neighbour_intersections
 
     def _get_r(self, problem):
@@ -466,6 +476,7 @@ class DistanceModelEvaluator(Evaluator):
         return r
 
     def get_edgewise_and_global_scores(self, problem, x):
+        self.summary = self.Summary()
         all_edge_components = problem.get_edge_components(x)
         edgewise_scores = np.full(len(all_edge_components), 1.0)
         all_positions = problem.extract_positions2D(x)
@@ -499,6 +510,8 @@ class DistanceModelEvaluator(Evaluator):
 
 
         min_node_distance, below_min_distance_num = self._calculate_min_node_distance_and_below_target_occurences(problem, all_positions)
+        self.summary.closer_than_min_distance_num = below_min_distance_num
+        self.summary.segment_num = sum(map(len, all_edge_components))
         min_distance_measure = self._calculate_min_node_distance_to_target_ratio(problem, min_node_distance)
 
         all_intersection_measure, non_neighbour_intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
@@ -529,6 +542,13 @@ class DistanceModelEvaluator(Evaluator):
             return np.append(global_score, _edgewise_scores)
         else:
             return global_score
+    
+    def get_summary(self, x, problem):
+        self.summary = self.Summary()
+        self.__call__(x, problem, False)
+        value = self.summary
+        self.summary = self.Summary()
+        return value
 
 class HGCNEvaluator(DistanceModelEvaluator):
     def __call__(self, x, problem, neural_network, laplacians):

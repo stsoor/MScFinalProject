@@ -51,7 +51,7 @@ problem = NodewiseDistanceModel(h, 10, 1080, 720)
 
 #print(components)
 
-evaluator = DistanceModelEvaluator(
+sub_evaluator = DistanceModelEvaluator(
                  edge_count_weight = 1000.0,
                  circularity_weight = 10.0,
                  not_missing_containment_weight = 10000.0,
@@ -63,7 +63,7 @@ evaluator = DistanceModelEvaluator(
                  all_intersection_measure_weight = 10.0,
                  invalid_intersection_weight= 1000.0,
                  debug=None)
-evaluator = CallableCoupling(evaluator, problem, True, _add_call_args_before=True)
+evaluator = CallableCoupling(sub_evaluator, problem, True, _add_call_args_before=True)
 
 #print(evaluator(x))
 population_size = 100
@@ -82,9 +82,12 @@ initializer = CallableCoupling(InitializerBlender([DistanceSolutionInitializer, 
 #alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20, problem=problem)
 #alg = NaiveMultiRowHypergraphGA(len(problem.get_vector_lower_bounds()) // 3, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
 
+#alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, debug=1, problem=problem)
 alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, debug=1, problem=problem)
 best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
+
+print('Summary:', sub_evaluator.get_summary(best_global_position, problem))
 
 drawer = HypergraphDrawer(problem, best_global_position)
 drawer.show()

@@ -35,6 +35,7 @@ class HypergraphPSO: # Particle Swarm Optimization
            drawer = HypergraphDrawer(self.problem, self.best_global_position)
            drawer.show(wait_key=self.debug)
            print(self.best_global_value)
+           #print(self.evaluator.callable.get_summary(self.best_position, self.problem)) # summary
 
     def _update_global_bests(self):
         argmin = np.argmin(self.best_particle_values)

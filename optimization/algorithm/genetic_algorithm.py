@@ -189,6 +189,7 @@ class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
             drawer = HypergraphDrawer(self.problem, self.best_position)
             drawer.show(wait_key=self.debug)
             print(self.best_value)
+            #print(self.evaluator.callable.get_summary(self.best_position, self.problem)) # summary
 
     def _update_bests(self):
         is_updated = super()._update_bests()
