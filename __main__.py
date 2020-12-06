@@ -51,7 +51,6 @@ problem = NodewiseDistanceModel(h, 10, 1080, 720)
 
 #print(components)
 
-evaluator = DistanceModelEvaluator(intersection_measure_weight = 1.0, debug=None)
 evaluator = DistanceModelEvaluator(
                  edge_count_weight = 1000.0,
                  circularity_weight = 10.0,
@@ -61,7 +60,8 @@ evaluator = DistanceModelEvaluator(
                  min_distance_weight = 100.0,
                  min_distance_occurence_weight = 10.0,
                  area_proportionality_weight = 10.0,
-                 intersection_measure_weight = 1000.0,
+                 all_intersection_measure_weight = 10.0,
+                 invalid_intersection_weight= 1000.0,
                  debug=None)
 evaluator = CallableCoupling(evaluator, problem, True, _add_call_args_before=True)
 
@@ -103,7 +103,8 @@ exit(0)
 #                  min_distance_weight = 100.0,
 #                  min_distance_occurence_weight = 10.0,
 #                  area_proportionality_weight = 10.0,
-#                  intersection_measure_weight = 1000.0,
+                #  all_intersection_measure_weight = 1000.0,
+                #  invalid_intersection_weight= 1000.0,
 #                  debug=None)
 # population_size = 100
 # problem = NodewiseDistanceModel(hs_20_8_100, 10, 1080, 720)

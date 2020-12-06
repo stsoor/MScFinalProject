@@ -29,19 +29,21 @@ class DistanceModelEvaluator(Evaluator):
                  min_distance_weight = 1.0,
                  min_distance_occurence_weight = 1.0,
                  area_proportionality_weight = 1.0,
-                 intersection_measure_weight = 1.0,
+                 all_intersection_measure_weight = 1.0,
+                 invalid_intersection_weight = 1.0,
                  properties_only=False,
                  debug=None):
-        self.edge_count_weight              = edge_count_weight
-        self.circularity_weight             = circularity_weight
-        self.not_missing_containment_weight = not_missing_containment_weight
-        self.not_miscontained_weight        = not_miscontained_weight
-        self.edge_segment_size_weight       = edge_segment_size_weight
-        # self.spatial_dispersion_weight    = spatial_dispersion_weight
-        self.min_distance_weight            = min_distance_weight
-        self.min_distance_occurence_weight  = min_distance_occurence_weight
-        self.area_proportionality_weight    = area_proportionality_weight
-        self.intersection_measure_weight    = intersection_measure_weight
+        self.edge_count_weight               = edge_count_weight
+        self.circularity_weight              = circularity_weight
+        self.not_missing_containment_weight  = not_missing_containment_weight
+        self.not_miscontained_weight         = not_miscontained_weight
+        self.edge_segment_size_weight        = edge_segment_size_weight
+        # self.spatial_dispersion_weight     = spatial_dispersion_weight
+        self.min_distance_weight             = min_distance_weight
+        self.min_distance_occurence_weight   = min_distance_occurence_weight
+        self.area_proportionality_weight     = area_proportionality_weight
+        self.all_intersection_measure_weight = all_intersection_measure_weight
+        self.invalid_intersection_weight     = invalid_intersection_weight
         self.properties_only = properties_only
         self.debug = debug
         self.summary = self.Summary()
@@ -59,7 +61,8 @@ class DistanceModelEvaluator(Evaluator):
             self.min_distance_weight,
             self.min_distance_occurence_weight,
             self.area_proportionality_weight,
-            self.intersection_measure_weight,
+            self.all_intersection_measure_weight,
+            self.invalid_intersection_weight,
             self.properties_only,
             self.debug)
 
@@ -430,7 +433,9 @@ class DistanceModelEvaluator(Evaluator):
         edge_intersections = self._get_edge_intersection_table(problem)
         all_segment_num = sum(map(len, edge_components))
         all_possible_intersections = nC2(all_segment_num)
-        measure = 0.0
+        all_possible_non_neighbour_intersections = all_possible_intersections
+        intersection_measure = 0.0
+        non_neighbour_intersection_measure = 0.0
 
         #distances = distance_matrix(all_positions, all_positions)
         #distances += np.diag(np.full(len(all_positions), np.inf))
@@ -440,19 +445,21 @@ class DistanceModelEvaluator(Evaluator):
         #    return 1
 
         for edge_1_id in range(len(edge_components) - 1):
-            all_possible_intersections -= nC2(len(edge_components[edge_1_id]))
+            all_possible_non_neighbour_intersections -= nC2(len(edge_components[edge_1_id]))
             for edge_2_id in range(edge_1_id + 1, len(edge_components)):
-                is_intersecting = False
+                is_neighbour = False
                 if edge_intersections[edge_1_id, edge_2_id]:
-                    all_possible_intersections -= (len(edge_components[edge_1_id]) * len(edge_components[edge_2_id]))
-                    continue
+                    all_possible_non_neighbour_intersections -= (len(edge_components[edge_1_id]) * len(edge_components[edge_2_id]))
+                    is_neighbour = True
                 for segment_1 in edge_components[edge_1_id]:
                     for segment_2 in edge_components[edge_2_id]:
                         is_intersecting = self._do_edge_components_intersect(problem, all_positions, segment_1, segment_2)
                         if is_intersecting:
-                            measure += 1.0
+                            intersection_measure += 1.0
+                            if not is_neighbour:
+                                non_neighbour_intersection_measure += 1.0
         all_possible_intersections -= nC2(len(edge_components[-1])) # the iteration finished before the last item
-        return measure / all_possible_intersections
+        return intersection_measure / all_possible_intersections, non_neighbour_intersection_measure / all_possible_non_neighbour_intersections
 
     def _get_r(self, problem):
         r = problem.min_node_distance / 2.0
@@ -486,24 +493,22 @@ class DistanceModelEvaluator(Evaluator):
             #edge_score += self.no_single_separation_weight * single_node_separation_ratio
             edge_score += self.edge_segment_size_weight * edge_segment_size_measure
             edge_score += self.area_proportionality_weight * area_proportionality_measure
-            #edge_score += self.intersection_measure_weight * closest_neighbour_measure
+            #edge_score += self.all_intersection_measure_weight * closest_neighbour_measure
 
             edgewise_scores[edge_id] = edge_score
 
 
         min_node_distance, below_min_distance_num = self._calculate_min_node_distance_and_below_target_occurences(problem, all_positions)
         min_distance_measure = self._calculate_min_node_distance_to_target_ratio(problem, min_node_distance)
-        if self.intersection_measure_weight is not None:
-            intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
-        else:
-            intersection_measure = 0.0
 
-        intersection_measure_weight = self.intersection_measure_weight  if self.intersection_measure_weight is not None else 0.0
+        all_intersection_measure, non_neighbour_intersection_measure = self._calculate_intersection_measure(problem, all_positions, all_edge_components)
+
         global_score = edgewise_scores.mean()
         #global_score = edgewise_scores.max()
         global_score += self.min_distance_weight * min_distance_measure
         global_score += self.min_distance_occurence_weight * below_min_distance_num / (len(all_positions) * (len(all_positions) - 1) / 2)
-        global_score += intersection_measure_weight * intersection_measure
+        global_score += self.all_intersection_measure_weight * all_intersection_measure
+        global_score += self.invalid_intersection_weight * non_neighbour_intersection_measure
 
         return edgewise_scores, global_score
 

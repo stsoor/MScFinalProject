@@ -30,7 +30,8 @@ import numpy as np
 #                         min_distance_weight = 0,
 #                         min_distance_occurence_weight = 0,
 #                         area_proportionality_weight = 0,
-#                         intersection_measure_weight = 0,
+                #  all_intersection_measure_weight = 1000.0,
+                #  invalid_intersection_weight= 1000.0,
 #                         debug=None)
 #         return evaluator
     
