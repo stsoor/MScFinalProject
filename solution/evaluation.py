@@ -18,6 +18,7 @@ class DistanceModelEvaluator(Evaluator):
             self.invalid_intersection_num = 0
             self.closer_than_min_distance_num = 0
             self.segment_num = 0
+            self.single_node_segment_num = 0
         
         def __str__(self):
             return f'''
@@ -27,6 +28,7 @@ intersection_num:             {self.intersection_num}
 invalid_intersection_num:     {self.invalid_intersection_num}
 closer_than_min_distance_num: {self.closer_than_min_distance_num}
 segment_num:                  {self.segment_num}
+single_node_segment_num:      {self.single_node_segment_num}
 '''
 
     def __init__(self,
@@ -40,6 +42,7 @@ segment_num:                  {self.segment_num}
                  area_proportionality_weight = 1.0,
                  all_intersection_measure_weight = 1.0,
                  invalid_intersection_weight = 1.0,
+                 no_single_separation_weight = 1.0,
                  properties_only=False,
                  debug=None):
         self.edge_count_weight               = edge_count_weight
@@ -53,6 +56,7 @@ segment_num:                  {self.segment_num}
         self.area_proportionality_weight     = area_proportionality_weight
         self.all_intersection_measure_weight = all_intersection_measure_weight
         self.invalid_intersection_weight     = invalid_intersection_weight
+        self.no_single_separation_weight     = no_single_separation_weight
         self.properties_only = properties_only
         self.debug = debug
         self.summary = self.Summary()
@@ -72,6 +76,7 @@ segment_num:                  {self.segment_num}
             self.area_proportionality_weight,
             self.all_intersection_measure_weight,
             self.invalid_intersection_weight,
+            self.no_single_separation_weight,
             self.properties_only,
             self.debug)
 
@@ -160,7 +165,11 @@ segment_num:                  {self.segment_num}
         
         self.summary.falsely_contained_node_num += miscontained_vertex_num
         
-        return miscontained_vertex_num if self.properties_only else miscontained_vertex_measure
+        if self.properties_only:
+            if miscontained_vertex_num > 0:
+                return 1.0
+            return 0.0
+        return miscontained_vertex_measure
 
     def _calculate_two_point_rectangle_corners(self, start, end, r):
         #v = np.array([end[0]-start[0], end[1]-start[1]], dtype=np.float32)
@@ -192,13 +201,16 @@ segment_num:                  {self.segment_num}
         #return len(edge_components) / sum(map(len, edge_components))
         return 1.0 - 1.0 / len(edge_segments)
 
-    # # best [0, 1] worst
-    # def _calculate_single_node_separations_ratio(self, edge_segments): # O(S) <= O(n)
-    #     one_long_segment_num = sum([1 for segment in edge_segments if len(edge_segments) == 1])
-    #     if len(edge_segments) > 1:
-    #         return one_long_segment_num / len(edge_segments)
-    #     else:
-    #         return 0.0
+    # best [0, 1] worst
+    def _calculate_single_node_separations_ratio(self, edge_segments): # O(S) <= O(n)
+        one_long_segment_num = sum([1 for segment in edge_segments if len(edge_segments) == 1])
+        if len(edge_segments) > 1:
+            self.summary.single_node_segment_num = one_long_segment_num
+            if self.properties_only and one_long_segment_num >= 1:
+                return 1.0
+            return one_long_segment_num / len(edge_segments)
+        else:
+            return 0.0
     
     def _calculate_segment_size_measure(self, problem, edge_segments, edge_id): # O(S) <= O(n)
         edge_vertex_num = problem.hypergraph[:, edge_id].sum()
@@ -234,8 +246,11 @@ segment_num:                  {self.segment_num}
     # best [0,1] worst
     def _calculate_min_node_distance_to_target_ratio(self, problem, min_distance_realisation): # O(n^2), this measure is global
         if min_distance_realisation < 1e-8:
-            return 1
-        return 1.0 - min(min_distance_realisation / problem.min_node_distance, 1.0)
+            return 1.0
+        distance_to_min_threshold_ratio = min(min_distance_realisation / problem.min_node_distance, 1.0)
+        if self.properties_only and distance_to_min_threshold_ratio < 1.0:
+            return 1.0
+        return 1.0 - distance_to_min_threshold_ratio
 
     # https://stackoverflow.com/questions/27161533/find-the-shortest-distance-between-a-point-and-line-segments-not-line
     def _get_line_segment_point_distance(self, start, end, point):
@@ -306,7 +321,10 @@ segment_num:                  {self.segment_num}
             return 0.0
         edge_vertex_ids = np.where(edge)[0]
 
-        return 1.0 - is_closest_from_common_edge[edge_vertex_ids].sum() / edge_vertex_ids.size
+        num_closest_from_commen_edge = is_closest_from_common_edge[edge_vertex_ids].sum()
+        if self.properties_only:
+            return 1.0 if num_closest_from_commen_edge < edge_vertex_ids.size else 0.0
+        return 1.0 - num_closest_from_commen_edge / edge_vertex_ids.size
     
     def _get_node_intersection_table(self, problem):
         h = problem.hypergraph
@@ -469,6 +487,9 @@ segment_num:                  {self.segment_num}
         self.summary.intersection_num += intersection_measure
         self.summary.invalid_intersection_num += non_neighbour_intersection_measure
 
+        if self.properties_only:
+            return intersection_measure / all_possible_intersections, non_neighbour_intersection_measure
+
         return intersection_measure / all_possible_intersections, non_neighbour_intersection_measure / all_possible_non_neighbour_intersections
 
     def _get_r(self, problem):
@@ -493,7 +514,7 @@ segment_num:                  {self.segment_num}
             miscounted_nodes_measure = sum([self._calculate_miscontained_nodes_measure(problem, segment_vertex_ids, segment_hull, all_positions, r) / len(segment_hulls) for segment_hull in segment_hulls])
             edge_segment_num_measure = self._calculate_edge_segments_num_ratio(all_edge_components[edge_id])
             area_proportionality_measure = self._calculate_area_proportionality(problem, edge_id, segment_hulls, r)
-            #single_node_separation_ratio = self._calculate_single_node_separations_ratio(all_edge_components[edge_id])
+            single_node_separation_ratio = self._calculate_single_node_separations_ratio(all_edge_components[edge_id])
             edge_segment_size_measure = self._calculate_segment_size_measure(problem, all_edge_components[edge_id], edge_id)
             closest_neighbour_measure = self._is_closest_neighbour_edge_neighbour_edge_measure(problem, edge_id, all_positions, is_closest_from_common_edge)
 
@@ -501,13 +522,13 @@ segment_num:                  {self.segment_num}
             edge_score += self.circularity_weight * circularity_measure
             edge_score += self.not_miscontained_weight * miscounted_nodes_measure
             edge_score += self.not_missing_containment_weight * nodes_not_missing_measure
-            #edge_score += self.no_single_separation_weight * single_node_separation_ratio
+            edge_score += self.no_single_separation_weight * single_node_separation_ratio
             edge_score += self.edge_segment_size_weight * edge_segment_size_measure
             edge_score += self.area_proportionality_weight * area_proportionality_measure
+            edge_score /= len(all_edge_components)
             #edge_score += self.all_intersection_measure_weight * closest_neighbour_measure
 
             edgewise_scores[edge_id] = edge_score
-
 
         min_node_distance, below_min_distance_num = self._calculate_min_node_distance_and_below_target_occurences(problem, all_positions)
         self.summary.closer_than_min_distance_num = below_min_distance_num

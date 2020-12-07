@@ -62,6 +62,8 @@ sub_evaluator = DistanceModelEvaluator(
                  area_proportionality_weight = 10.0,
                  all_intersection_measure_weight = 10.0,
                  invalid_intersection_weight= 1000.0,
+                 no_single_separation_weight= 100.0,
+                 properties_only=True,
                  debug=None)
 evaluator = CallableCoupling(sub_evaluator, problem, True, _add_call_args_before=True)
 
@@ -82,53 +84,54 @@ initializer = CallableCoupling(InitializerBlender([DistanceSolutionInitializer, 
 #alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20, problem=problem)
 #alg = NaiveMultiRowHypergraphGA(len(problem.get_vector_lower_bounds()) // 3, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
 
-#alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, debug=1, problem=problem)
-## alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, debug=1, problem=problem)
-## best_global_value, best_global_position, iteration = alg()
-## print(best_global_value, iteration)
-
-## print('Summary:', sub_evaluator.get_summary(best_global_position, problem))
-
-## drawer = HypergraphDrawer(problem, best_global_position)
-## drawer.show()
-
-## exit(0)
-# spike
-
-from optimization.algorithm.hypergraph_convolutional_optimization import HypergraphConvolutionalNetwork
-evaluator = DistanceModelEvaluator(
-                 edge_count_weight = 1000.0,
-                 circularity_weight = 10.0,
-                 not_missing_containment_weight = 10000.0,
-                 not_miscontained_weight = 10000.0,
-                 edge_segment_size_weight = 1000.0,
-                 min_distance_weight = 100.0,
-                 min_distance_occurence_weight = 10.0,
-                 area_proportionality_weight = 10.0,
-                 all_intersection_measure_weight = 1000.0,
-                 invalid_intersection_weight= 1000.0,
-                 debug=None)
-population_size = 100
-problem = NodewiseDistanceModel(hs_20_8_100, 10, 1080, 720)
-relu = HypergraphConvolutionalNetwork.Activation.Relu
-sigmoid = HypergraphConvolutionalNetwork.Activation.Sigmoid
-softmax = HypergraphConvolutionalNetwork.Activation.Softmax
-gcn = HypergraphConvolutionalNetwork([20, 4, 3], [sigmoid, sigmoid])
-#gcn = HypergraphConvolutionalNetwork([20, 4, 3], [relu, softmax])
-best_global_value, iteration, all_solutions, all_scores = gcn.train(problem, evaluator, population_size, 0.3, 0.05, RandomGenerator('normal', 0, 3), 100, target_score=1, crossover_pct=0.1, debug=True)
+# alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, debug=1, problem=problem)
+alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 15, target_score=0, debug=1, problem=problem)
+best_global_value, best_global_position, iteration = alg()
 print(best_global_value, iteration)
 
-with open('allSolutions.dat', 'wb') as f:
-    np.save(f, all_solutions)
-with open('allScores.dat', 'wb') as f:
-    np.save(f, all_scores)
+print('Summary:', sub_evaluator.get_summary(best_global_position, problem))
 
-subproblem = problem.clone(False)
-#subproblem.hypergraph = problem.hypergraphs[0]
-subproblem.hypergraph = h9
-best_global_position = gcn.predict(subproblem).flatten(order='F')
-print('score:', evaluator(best_global_position, subproblem))
-print('vector:', gcn.dump_row_vector())
-print(evaluator.get_summary(best_global_position, subproblem))
-drawer = HypergraphDrawer(subproblem, best_global_position)
+drawer = HypergraphDrawer(problem, best_global_position)
 drawer.show()
+
+exit(0)
+# spike
+
+# from optimization.algorithm.hypergraph_convolutional_optimization import HypergraphConvolutionalNetwork
+# evaluator = DistanceModelEvaluator(
+#                  edge_count_weight = 1000.0,
+#                  circularity_weight = 10.0,
+#                  not_missing_containment_weight = 10000.0,
+#                  not_miscontained_weight = 10000.0,
+#                  edge_segment_size_weight = 1000.0,
+#                  min_distance_weight = 100.0,
+#                  min_distance_occurence_weight = 10.0,
+#                  area_proportionality_weight = 10.0,
+#                  all_intersection_measure_weight = 1000.0,
+#                  invalid_intersection_weight= 1000.0,
+#                  no_single_separation_weight= 100.0,
+#                  debug=None)
+# population_size = 100
+# problem = NodewiseDistanceModel(hs_20_8_100, 10, 1080, 720)
+# relu = HypergraphConvolutionalNetwork.Activation.Relu
+# sigmoid = HypergraphConvolutionalNetwork.Activation.Sigmoid
+# softmax = HypergraphConvolutionalNetwork.Activation.Softmax
+# gcn = HypergraphConvolutionalNetwork([20, 4, 3], [sigmoid, sigmoid])
+# #gcn = HypergraphConvolutionalNetwork([20, 4, 3], [relu, softmax])
+# best_global_value, iteration, all_solutions, all_scores = gcn.train(problem, evaluator, population_size, 0.3, 0.05, RandomGenerator('normal', 0, 3), 100, target_score=1, crossover_pct=0.1, debug=True)
+# print(best_global_value, iteration)
+
+# with open('allSolutions.dat', 'wb') as f:
+#     np.save(f, all_solutions)
+# with open('allScores.dat', 'wb') as f:
+#     np.save(f, all_scores)
+
+# subproblem = problem.clone(False)
+# #subproblem.hypergraph = problem.hypergraphs[0]
+# subproblem.hypergraph = h9
+# best_global_position = gcn.predict(subproblem).flatten(order='F')
+# print('score:', evaluator(best_global_position, subproblem))
+# print('vector:', gcn.dump_row_vector())
+# print(evaluator.get_summary(best_global_position, subproblem))
+# drawer = HypergraphDrawer(subproblem, best_global_position)
+# drawer.show()

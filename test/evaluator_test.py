@@ -32,6 +32,7 @@ import numpy as np
 #                         area_proportionality_weight = 0,
                 #  all_intersection_measure_weight = 1000.0,
                 #  invalid_intersection_weight= 1000.0,
+                #  no_single_separation_weight= 100.0,
 #                         debug=None)
 #         return evaluator
     
