@@ -35,6 +35,7 @@ class NaiveGA(GA):
         self.crossover_pct = crossover_pct
         self.max_iteration_num = max_iteration_num
         self.target_score = target_score if target_score is not None else -np.inf
+        #self._setup_optimization()
 
         self.debug = debug
         

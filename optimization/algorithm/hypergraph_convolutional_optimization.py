@@ -100,7 +100,9 @@ class HypergraphConvolutionalNetwork:
         best_global_value, best_global_position, iteration = optimizer()
         self.load_row_vector(best_global_position)
         self.is_trained = True
-        return best_global_value, iteration
+        all_solutions = optimizer.x.copy()
+        all_scores = optimizer.fitness_values.copy()
+        return best_global_value, iteration, all_solutions, all_scores
 
     def get_laplacian_graph(self, hypergraph):
         node_num, edge_num = hypergraph.shape
