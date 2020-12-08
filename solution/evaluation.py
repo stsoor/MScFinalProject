@@ -550,13 +550,12 @@ single_node_segment_num:      {self.single_node_segment_num}
         x_local = x.copy()
         x_local = np.round(x_local, 6)
 
+        _edgewise_scores, global_score = self.get_edgewise_and_global_scores(problem, x_local)
+
         if self.debug is not None:
             drawer = HypergraphDrawer(problem, x_local)
             drawer.show(wait_key=self.debug)
 
-        _edgewise_scores, global_score = self.get_edgewise_and_global_scores(problem, x_local)
-
-        if self.debug is not None:
             print(global_score)
 
         if return_edgwise_scores:

@@ -31,11 +31,11 @@ class HypergraphPSO: # Particle Swarm Optimization
         self.best_particle_values[improvement_mask] = self.current_particle_values[improvement_mask]
 
     def _show_debug_info(self):
-       if self.debug is not None and self.problem is not None:
-           drawer = HypergraphDrawer(self.problem, self.best_global_position)
-           drawer.show(wait_key=self.debug)
-           print(self.best_global_value)
-           #print(self.evaluator.callable.get_summary(self.best_position, self.problem)) # summary
+        if self.debug is not None and self.problem is not None:
+            drawer = HypergraphDrawer(self.problem, self.best_global_position)
+            drawer.show(wait_key=self.debug)
+            print(self.best_global_value, self.current_particle_values.mean(), self.current_particle_values.std(), flush=True)
+            #print(self.evaluator.callable.get_summary(self.best_position, self.problem)) # summary
 
     def _update_global_bests(self):
         argmin = np.argmin(self.best_particle_values)
@@ -84,11 +84,12 @@ class HypergraphPSO: # Particle Swarm Optimization
             prev_best_global_value = self.best_global_value
             self._update_global_bests()
             
-            if prev_best_global_value != self.best_global_value and np.abs(prev_best_global_value - self.best_global_value) <= self.min_value_change:
-                return self.best_global_value, self.best_global_position, iteration
+            #if prev_best_global_value != self.best_global_value and np.abs(prev_best_global_value - self.best_global_value) <= self.min_value_change:
+            #    return self.best_global_value, self.best_global_position, iteration
                 
             if self.debug is not None:
                 print(iteration)
+            print(f'{iteration}\t{self.best_global_value}\t{self.current_particle_values.mean()}\t{self.current_particle_values.std()}', flush=True)
 
         return self.best_global_value, self.best_global_position, iteration
 

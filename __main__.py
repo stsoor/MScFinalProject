@@ -8,6 +8,7 @@ from optimization.algorithm.genetic_algorithm import NaiveMultiRowHypergraphGA, 
 from utilities.callable_coupling import CallableCoupling
 import cv2
 import numpy as np
+from datetime import datetime
 
 h1 = Hypergraph(7, 2)
 h2 = Hypergraph(7, 2)
@@ -42,7 +43,8 @@ h10 = RandomHypergraph(200, 50, RandomGenerator('uniform', 0, 1), 0.05)
 h11 = RandomHypergraph(100, 25, RandomGenerator('uniform', 0, 1), 0.05)
 hs_20_8_100 = [RandomHypergraph(20, 8, RandomGenerator('uniform', 0, 1), 0.2) for _ in range(100)]
 
-h = h9
+h_test = RandomHypergraph(100, 32, RandomGenerator('uniform', 0, 1), 0.05)
+h = h_test
 
 #x = np.array([100,100,200,200,120,150,180,100,200,200,100,120,150,120] + [50] * 7, dtype=np.float32)
 
@@ -56,14 +58,14 @@ sub_evaluator = DistanceModelEvaluator(
                  circularity_weight = 10.0,
                  not_missing_containment_weight = 10000.0,
                  not_miscontained_weight = 10000.0,
-                 edge_segment_size_weight = 1000.0,
-                 min_distance_weight = 100.0,
+                 edge_segment_size_weight = 100.0,
+                 min_distance_weight = 1000.0,
                  min_distance_occurence_weight = 10.0,
                  area_proportionality_weight = 10.0,
                  all_intersection_measure_weight = 10.0,
                  invalid_intersection_weight= 1000.0,
                  no_single_separation_weight= 100.0,
-                 properties_only=True,
+                 properties_only=False,
                  debug=None)
 evaluator = CallableCoupling(sub_evaluator, problem, True, _add_call_args_before=True)
 
@@ -72,27 +74,45 @@ population_size = 100
 initializer = DistanceSolutionInitializer
 #initializer = EdgewiseRandomDistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
-#initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.NONE, _add_call_args_after=True)
+initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.NONE, _add_call_args_after=True)
 #initializer = CallableCoupling(initializer, problem, used_node_distance=DistanceStatistic.MEAN, _add_call_args_after=True)
 
 
-initializer = CallableCoupling(InitializerBlender([DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3]), problem, used_node_distance=DistanceStatistic.MEAN, _add_call_args_after=True)
+#initializer = CallableCoupling(InitializerBlender([DistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3]), problem, used_node_distance=DistanceStatistic.MEAN, _add_call_args_after=True)
 
 #initializer = DistanceSolutionInitializer
 #initializer = SpringDistanceSolutionInitializer
 #initializer = CallableCoupling(InitializerBlender([SpringDistanceSolutionInitializer, EdgewiseRandomDistanceSolutionInitializer], [0.7,0.3]), problem, _add_call_args_after=True)
-#alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, 100, 0.5, 0.5, 0.5, 100, debug=20, problem=problem)
-#alg = NaiveMultiRowHypergraphGA(len(problem.get_vector_lower_bounds()) // 3, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
+#alg = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.5, 0.5, 0.5, 100, target_score=0, problem=problem)
+row_size = len(problem.get_vector_lower_bounds()) // 3
+#alg = NaiveMultiRowHypergraphGA(row_size, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, debug=20, problem=problem)
+#alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, problem=problem)
 
-# alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), np.inf, target_score=0, debug=1, problem=problem)
-alg = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 15, target_score=0, debug=1, problem=problem)
-best_global_value, best_global_position, iteration = alg()
+alg1 = EdgewiseHypergraphGA(initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, target_score=0, problem=problem)
+alg2 = NaiveMultiRowHypergraphGA(row_size, problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.2, 0.3, RandomGenerator('normal', 0, 3), 100, target_score=0, problem=problem)
+alg3 = HypergraphPSO(problem.get_vector_lower_bounds(), problem.get_vector_upper_bounds(), initializer, evaluator, population_size, 0.5, 0.5, 0.5, 200, target_score=0, problem=problem)
+
+start=datetime.now()
+best_global_value, best_global_position, iteration = alg1()
+print('runtime:', datetime.now()-start)
+print(best_global_value, iteration)
+
+print('Summary:', sub_evaluator.get_summary(best_global_position, problem))
+start=datetime.now()
+best_global_value, best_global_position, iteration = alg2()
+print('runtime:', datetime.now()-start)
+print(best_global_value, iteration)
+
+print('Summary:', sub_evaluator.get_summary(best_global_position, problem))
+start=datetime.now()
+best_global_value, best_global_position, iteration = alg3()
+print('runtime:', datetime.now()-start)
 print(best_global_value, iteration)
 
 print('Summary:', sub_evaluator.get_summary(best_global_position, problem))
 
-drawer = HypergraphDrawer(problem, best_global_position)
-drawer.show()
+#drawer = HypergraphDrawer(problem, best_global_position)
+#drawer.show()
 
 exit(0)
 # spike
@@ -103,8 +123,8 @@ exit(0)
 #                  circularity_weight = 10.0,
 #                  not_missing_containment_weight = 10000.0,
 #                  not_miscontained_weight = 10000.0,
-#                  edge_segment_size_weight = 1000.0,
-#                  min_distance_weight = 100.0,
+#                  edge_segment_size_weight = 100.0,
+#                  min_distance_weight = 1000.0,
 #                  min_distance_occurence_weight = 10.0,
 #                  area_proportionality_weight = 10.0,
 #                  all_intersection_measure_weight = 1000.0,

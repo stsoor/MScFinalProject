@@ -143,6 +143,7 @@ class NaiveGA(GA):
             #    print(self.best_value, self.best_position)
             if self.debug is not None:
                 print(iteration)
+            print(f'{iteration}\t{self.best_value}\t{self.fitness_values.mean()}\t{self.fitness_values.std()}', flush=True)
 
         return self.best_value, self.best_position, iteration
 
@@ -189,7 +190,7 @@ class NaiveMultiRowHypergraphGA(NaiveMultiRowGA):
         if self.debug is not None and self.problem is not None:
             drawer = HypergraphDrawer(self.problem, self.best_position)
             drawer.show(wait_key=self.debug)
-            print(self.best_value)
+            print(self.best_value, self.fitness_values.mean(), self.fitness_values.std(), flush=True)
             #print(self.evaluator.callable.get_summary(self.best_position, self.problem)) # summary
 
     def _update_bests(self):
