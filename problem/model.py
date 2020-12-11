@@ -112,9 +112,14 @@ class NodewiseDistanceModel(ProblemModel):
         
         return all_components
     
-    def get_hypergraph_as_graph(self):
-        incidence = (self.hypergraph @ self.hypergraph.T)
-        np.fill_diagonal(incidence, False)
+    def get_hypergraph_as_graph(self, weighted=False):
+        if not weighted:
+            incidence = (self.hypergraph @ self.hypergraph.T)
+            np.fill_diagonal(incidence, False)
+        else:
+            hypergraph_as_int = self.hypergraph.astype(np.int32)
+            incidence = (hypergraph_as_int @ hypergraph_as_int.T)
+            np.fill_diagonal(incidence, 0)
         return nx.from_numpy_matrix(incidence)
 
     def get_vector_lower_bounds(self):

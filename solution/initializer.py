@@ -53,20 +53,20 @@ class DistanceSolutionInitializer(Initializer):
             x = np.apply_along_axis(override_row_with_closest_node_distance, 1, x, problem, used_node_distance)
         return x
 
-
 class SpringDistanceSolutionInitializer(DistanceSolutionInitializer):
-    def __new__(self, problem, dimensionality, used_node_distance=DistanceStatistic.NONE):
+    def __new__(self, problem, dimensionality, used_node_distance=DistanceStatistic.NONE, edge_weighted=False):
 
-        def build_x_row(G, node_num):
-            position_dict = nx.spring_layout(nx_graph)
+        def build_x_row(G, node_num, edge_weighted):
+            weight_param = 'weight' if edge_weighted else None
+            position_dict = nx.spring_layout(nx_graph, weight=weight_param)
             x_list = []
             for node_id in range(node_num):
                 x_list.append(position_dict[node_id])
             return np.stack(x_list).reshape((-1,),order='F')
 
         node_num = problem.hypergraph.shape[0]
-        nx_graph = problem.get_hypergraph_as_graph()
-        positions = np.apply_along_axis(lambda row_id, G, node_num: build_x_row(G, node_num), 1, np.arange(dimensionality).reshape(dimensionality,1), nx_graph, node_num)
+        nx_graph = problem.get_hypergraph_as_graph(weighted=True)
+        positions = np.apply_along_axis(lambda row_id, G, node_nu, edge_weighted: build_x_row(G, node_num, edge_weighted), 1, np.arange(dimensionality).reshape(dimensionality,1), nx_graph, node_num, edge_weighted)
 #        positions = positions.reshape(dimensionality, 2*node_num) # removing excess (1-point) dimension
 
         lower_bounds = problem.get_vector_lower_bounds()
@@ -122,6 +122,28 @@ class EdgewiseRandomDistanceSolutionInitializer(DistanceSolutionInitializer):
         x = np.hstack((node_x_values, node_y_values, node_d_values))
         x = self._apply_node_distance_override(x, problem, used_node_distance)
 
+        return x
+
+def HgcnInitializer(DistanceSolutionInitializer):
+    def __init__(self, hgcn, trained_vectors=None, file_path=None):
+        self.hgcn = hgcn
+        if file_path is not None and trained_vectors is None:
+            with open(file_path, 'wb') as f:
+                self.trained_vectors = np.load(f)
+        else:
+            self.trained_vectors = trained_vectors
+
+    def __call__(self, problem, dimensionality, used_node_distance=DistanceStatistic.NONE):
+
+        assert len(self.trained_vectors) <= dimensionality
+
+        node_num, _ = problem.hypergraph.shape
+        x = np.empty((dimensionality, node_num*3))
+        for i in range(dimensionality):
+            self.hgcn.load_row_vector(self.trained_vectors[i])
+            x[i,:] = self.predict(problem)
+
+        x = self._apply_node_distance_override(x, problem, used_node_distance)
         return x
 
 class InitializerBlender:

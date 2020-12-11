@@ -203,7 +203,7 @@ single_node_segment_num:      {self.single_node_segment_num}
 
     # best [0, 1] worst
     def _calculate_single_node_separations_ratio(self, edge_segments): # O(S) <= O(n)
-        one_long_segment_num = sum([1 for segment in edge_segments if len(edge_segments) == 1])
+        one_long_segment_num = sum([1 for segment in edge_segments if len(segment) == 1])
         if len(edge_segments) > 1:
             self.summary.single_node_segment_num = one_long_segment_num
             if self.properties_only and one_long_segment_num >= 1:
@@ -490,7 +490,7 @@ single_node_segment_num:      {self.single_node_segment_num}
         if self.properties_only:
             return intersection_measure / all_possible_intersections, non_neighbour_intersection_measure
 
-        return intersection_measure / all_possible_intersections, non_neighbour_intersection_measure / all_possible_non_neighbour_intersections
+        return intersection_measure / all_possible_intersections, non_neighbour_intersection_measure / max(all_possible_non_neighbour_intersections, 1)
 
     def _get_r(self, problem):
         r = problem.min_node_distance / 2.0
